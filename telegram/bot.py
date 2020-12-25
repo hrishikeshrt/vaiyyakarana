@@ -10,10 +10,7 @@ from telethon import TelegramClient, events, sync
 
 import dhatupatha
 import shabdapatha
-import config.TelegramConfiguration as config
-
-###############################################################################
-
+import config.TelegramConfig as config
 
 ###############################################################################
 
