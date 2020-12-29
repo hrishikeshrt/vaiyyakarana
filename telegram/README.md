@@ -14,7 +14,8 @@ Uses https://docs.telethon.dev/en/latest/
 2. A bot needs to be created with BotFather: https://t.me/botfather and fill in `bot_token` of config.sample.py.
 3. After filling in the details rename config.sample.py to config.py
 4. Run python bot.py
-5. Type '/start' in the bot created to start.
+5. Type '/start [input transliteration scheme] [output transliteration scheme]' in the bot created to start.
+    Supported transliteration schemes are DEVANAGARI, HK, VELTHUIS and ITRANS
 
 ## Supported Operations
 1. /verbsearch \<verb form\>

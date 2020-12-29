@@ -11,6 +11,7 @@ from telethon import TelegramClient, events, sync
 import dhatupatha
 import shabdapatha
 from config import TelegramConfig as config
+from indic_transliteration import sanscript
 
 ###############################################################################
 
@@ -23,6 +24,29 @@ bot = TelegramClient('Bot Session', config.api_id, config.api_hash)
 
 ###############################################################################
 
+pUrvalekhavidhiH = 'DEVANAGARI'
+pazcAllekhavidhiH = 'DEVANAGARI'
+
+def nAgariprati_parivartati(vAkyam,pUrvavidhiH):
+    if pUrvavidhiH == 'HK':
+        return sanscript.transliterate(vAkyam,sanscript.HK,sanscript.DEVANAGARI)
+    elif pUrvavidhiH == 'VELTHUIS':
+        return sanscript.transliterate(vAkyam,sanscript.VELTHUIS,sanscript.DEVANAGARI)
+    elif pUrvavidhiH == 'ITRANS':
+        return sanscript.transliterate(vAkyam,sanscript.ITRANS,sanscript.DEVANAGARI)
+    else:
+        return vAkyam
+    
+
+def nAgaritaH_parivartati(vAkyam,pazcAdvidhiH):
+    if pazcAdvidhiH == 'HK':
+        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.HK)
+    elif pazcAdvidhiH == 'VELTHUIS':
+        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.VELTHUIS)
+    elif pazcAdvidhiH == 'ITRANS':
+        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.ITRANS)
+    else:
+        return vAkyam
 
 def format_word_match(shabda):
     output = []
@@ -83,16 +107,26 @@ def format_verb_forms(dhatu, rupaani):
 ###############################################################################
 
 
-@bot.on(events.NewMessage(pattern='/start'))
+@bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
+    args = event.text.split()
+    global pUrvalekhavidhiH
+    global pazcAllekhavidhiH
+    if len(args) > 1:
+        pUrvalekhavidhiH = args[1]
+    if len(args) > 2:
+        pazcAllekhavidhiH = args[2]
+
     await event.respond(config.start_message, parse_mode='html')
     raise events.StopPropagation
 
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
 async def search_verb(event):
+    global pUrvalekhavidhiH
     search_key = ' '.join(event.text.split()[1:])
+    search_key = nAgariprati_parivartati(search_key,pUrvalekhavidhiH)
     print(f"VERBSEARCH: {search_key}")
     matches = [
         format_verb_match(match)
@@ -119,7 +153,9 @@ async def show_verb_forms(event):
 
 @bot.on(events.NewMessage(pattern='^/wordsearch'))
 async def search_word(event):
+    global pUrvalekhavidhiH
     search_key = ' '.join(event.text.split()[1:])
+    search_key = nAgariprati_parivartati(search_key,pUrvalekhavidhiH)
     print(f"WORDSEARCH: {search_key}")
     matches = [
         format_word_match(match)
