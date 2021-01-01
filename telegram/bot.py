@@ -24,8 +24,7 @@ bot = TelegramClient('Bot Session', config.api_id, config.api_hash)
 
 ###############################################################################
 
-pUrvalekhavidhiH = 'DEVANAGARI'
-pazcAllekhavidhiH = 'DEVANAGARI'
+lekhavidhiH = {}
 
 def nAgariprati_parivartati(vAkyam,pUrvavidhiH):
     if pUrvavidhiH == 'HK':
@@ -111,12 +110,14 @@ def format_verb_forms(dhatu, rupaani):
 async def start(event):
     """Send a message when the command /start is issued."""
     args = event.text.split()
-    global pUrvalekhavidhiH
-    global pazcAllekhavidhiH
+    global lekhavidhiH
+    sender_id = event.sender.id
+    if sender_id not in lekhavidhiH:
+        lekhavidhiH[sender_id] = {'pUrva':'DEVANAGARI','para':'DEVANAGARI'}
     if len(args) > 1:
-        pUrvalekhavidhiH = args[1]
+        lekhavidhiH[sender_id]['pUrva'] = args[1]
     if len(args) > 2:
-        pazcAllekhavidhiH = args[2]
+        lekhavidhiH[sender_id]['para'] = args[2]
 
     await event.respond(config.start_message, parse_mode='html')
     raise events.StopPropagation
@@ -124,9 +125,10 @@ async def start(event):
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
 async def search_verb(event):
-    global pUrvalekhavidhiH
+    global lekhavidhiH
     search_key = ' '.join(event.text.split()[1:])
-    search_key = nAgariprati_parivartati(search_key,pUrvalekhavidhiH)
+    sender_id = event.sender.id
+    search_key = nAgariprati_parivartati(search_key,lekhavidhiH[sender_id]['pUrva'])
     print(f"VERBSEARCH: {search_key}")
     matches = [
         format_verb_match(match)
@@ -155,7 +157,8 @@ async def show_verb_forms(event):
 async def search_word(event):
     global pUrvalekhavidhiH
     search_key = ' '.join(event.text.split()[1:])
-    search_key = nAgariprati_parivartati(search_key,pUrvalekhavidhiH)
+    sender_id = event.sender.id
+    search_key = nAgariprati_parivartati(search_key,lekhavidhiH[sender_id]['pUrva'])
     print(f"WORDSEARCH: {search_key}")
     matches = [
         format_word_match(match)
