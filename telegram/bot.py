@@ -6,7 +6,7 @@ Created on Fri Nov 27 19:04:19 2020
 @author: Hrishikesh Terdalkar
 """
 
-from telethon import TelegramClient, events, sync
+from telethon import TelegramClient, events, sync, Button
 
 import dhatupatha
 import shabdapatha
@@ -24,28 +24,7 @@ bot = TelegramClient('Bot Session', config.api_id, config.api_hash)
 
 ###############################################################################
 
-lekhavidhiH = {}
-
-def nAgariprati_parivartati(vAkyam,pUrvavidhiH):
-    if pUrvavidhiH == 'HK':
-        return sanscript.transliterate(vAkyam,sanscript.HK,sanscript.DEVANAGARI)
-    elif pUrvavidhiH == 'VELTHUIS':
-        return sanscript.transliterate(vAkyam,sanscript.VELTHUIS,sanscript.DEVANAGARI)
-    elif pUrvavidhiH == 'ITRANS':
-        return sanscript.transliterate(vAkyam,sanscript.ITRANS,sanscript.DEVANAGARI)
-    else:
-        return vAkyam
-    
-
-def nAgaritaH_parivartati(vAkyam,pazcAdvidhiH):
-    if pazcAdvidhiH == 'HK':
-        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.HK)
-    elif pazcAdvidhiH == 'VELTHUIS':
-        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.VELTHUIS)
-    elif pazcAdvidhiH == 'ITRANS':
-        return sanscript.transliterate(vAkyam,sanscript.DEVANAGARI,sanscript.ITRANS)
-    else:
-        return vAkyam
+transliteration_scheme = {}
 
 def format_word_match(shabda):
     output = []
@@ -106,29 +85,43 @@ def format_verb_forms(dhatu, rupaani):
 ###############################################################################
 
 
-@bot.on(events.NewMessage(pattern='^/start'))
+@bot.on(events.NewMessage(pattern='/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
-    args = event.text.split()
-    global lekhavidhiH
+    keyboard = [
+        [  
+            Button.inline("Devanagari", data='input_devanagari'), 
+            Button.inline("Harvard-Kyoto", data='input_hk')
+        ],
+        [
+            Button.inline("Velthuis", data='input_velthuis'), 
+            Button.inline("ITRANS", data='input_itrans')
+        ]
+    ] 
+    global transliteration_scheme
     sender_id = event.sender.id
-    if sender_id not in lekhavidhiH:
-        lekhavidhiH[sender_id] = {'pUrva':'DEVANAGARI','para':'DEVANAGARI'}
-    if len(args) > 1:
-        lekhavidhiH[sender_id]['pUrva'] = args[1]
-    if len(args) > 2:
-        lekhavidhiH[sender_id]['para'] = args[2]
-
-    await event.respond(config.start_message, parse_mode='html')
+    if sender_id not in transliteration_scheme:
+        transliteration_scheme[sender_id] = {'input':sanscript.DEVANAGARI,'output':sanscript.DEVANAGARI}
+    await event.respond(config.start_message+'\n'+'कृपया  एकं लेखनविधिं वृणोतु –', buttons=keyboard,parse_mode='html')
     raise events.StopPropagation
+
+@bot.on(events.CallbackQuery)
+async def set_scheme(event):
+    global transliteration_scheme
+    data = event.data.decode('utf-8')
+    sender_id = event.sender.id
+    transliteration_scheme_map = {'devanagari': sanscript.DEVANAGARI, 'hk': sanscript.HK, 'velthuis': sanscript.VELTHUIS,'itrans': sanscript.ITRANS}
+    indx, scheme = data.split('_')
+    transliteration_scheme[sender_id][indx] = transliteration_scheme_map[scheme]
+    await event.respond(f'वृणीता - {scheme}')
 
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
 async def search_verb(event):
-    global lekhavidhiH
+    global transliteration_scheme
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = nAgariprati_parivartati(search_key,lekhavidhiH[sender_id]['pUrva'])
+    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
     print(f"VERBSEARCH: {search_key}")
     matches = [
         format_verb_match(match)
@@ -155,10 +148,10 @@ async def show_verb_forms(event):
 
 @bot.on(events.NewMessage(pattern='^/wordsearch'))
 async def search_word(event):
-    global pUrvalekhavidhiH
+    global transliteration_scheme
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = nAgariprati_parivartati(search_key,lekhavidhiH[sender_id]['pUrva'])
+    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
     print(f"WORDSEARCH: {search_key}")
     matches = [
         format_word_match(match)
