@@ -128,7 +128,7 @@ async def start(event):
 
     start_message = [
         '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठः शब्दपाठः च जानामि। कृपया पृच्छतु।'
+        'अहम् धातुपाठः शब्दपाठः च जानामि। कृपया पृच्छतु।',
         'कृपया  एकां लेखनविधिं वृणोतु –'
     ]
     await event.respond(
@@ -139,23 +139,28 @@ async def start(event):
 ###############################################################################
 
 
-@bot.on(events.CallbackQuery)
+@bot.on(events.CallbackQuery(pattern='^input_'))
 async def set_scheme(event):
     '''Set transliteration scheme for user'''
     global transliteration_scheme
-    data = event.data.decode('utf-8')
     sender_id = event.sender.id
+    data = event.data.decode('utf-8')
     indx, scheme = data.split('_')
-    if indx == 'query':
-        await redirect(event)
-    else:
-        transliteration_scheme[sender_id][indx] = scheme
-        await event.respond(f'वृणीता - {scheme}\nअन्वेषणीयपदं लिखतु –')
+
+    transliteration_scheme[sender_id][indx] = scheme
+    await event.respond(f'वृणीता - {scheme}\nअन्वेषणीयपदं लिखतु –')
+
+
+@bot.on(events.CallbackQuery(pattern='^query_'))
+async def query_handler(event):
+    await redirect(event)
+
+###############################################################################
 
 
 @bot.on(events.NewMessage(pattern='^[^/]'))
 async def search(event):
-    text = 'query_' + event.text
+    text = f'query_{event.text}'
     keyboard = [
         [Button.inline("सुबन्तम्", data=text+' sup'),
          Button.inline("तिङन्तम्", data=text+' tiG')]
@@ -173,6 +178,8 @@ async def redirect(event):
     elif form == 'tiG':
         event.text = '/verbsearch ' + text
         await search_verb(event)
+
+###############################################################################
 
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
@@ -257,4 +264,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-    pass
