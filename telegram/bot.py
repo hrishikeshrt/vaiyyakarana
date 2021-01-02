@@ -102,7 +102,7 @@ async def start(event):
     sender_id = event.sender.id
     if sender_id not in transliteration_scheme:
         transliteration_scheme[sender_id] = {'input':sanscript.DEVANAGARI,'output':sanscript.DEVANAGARI}
-    await event.respond(config.start_message+'\n'+'कृपया  एकं लेखनविधिं वृणोतु –', buttons=keyboard,parse_mode='html')
+    await event.respond(config.start_message+'\n'+'कृपया  एकां लेखनविधिं वृणोतु –', buttons=keyboard,parse_mode='html')
     raise events.StopPropagation
 
 @bot.on(events.CallbackQuery)
@@ -112,9 +112,31 @@ async def set_scheme(event):
     sender_id = event.sender.id
     transliteration_scheme_map = {'devanagari': sanscript.DEVANAGARI, 'hk': sanscript.HK, 'velthuis': sanscript.VELTHUIS,'itrans': sanscript.ITRANS}
     indx, scheme = data.split('_')
-    transliteration_scheme[sender_id][indx] = transliteration_scheme_map[scheme]
-    await event.respond(f'वृणीता - {scheme}')
+    if indx == 'query':
+        await redirect(event)
+    else:
+        transliteration_scheme[sender_id][indx] = transliteration_scheme_map[scheme]
+        await event.respond(f'वृणीता - {scheme}\nअन्वेषणीयपदं लिखतु –')
 
+
+@bot.on(events.NewMessage(pattern='^[^/]'))
+async def search(event):
+    text = 'query_' + event.text
+    keyboard = [[   Button.inline("सुबन्तम्",data=text+' sup'),
+                             Button.inline("तिङन्तम्",data=text+' tiG') ]]
+    await event.respond(f'दत्तपदस्य प्रकारं वृणोतु –',buttons=keyboard)
+
+
+async def redirect(event):
+    print('here')
+    data = event.data.decode('utf-8')
+    text, form = data.split('_')[1].split()
+    if form == 'sup':
+        event.text = '/wordsearch ' + text
+        await search_word(event)
+    elif form =='tiG':
+        event.text = '/verbsearch ' + text
+        await search_verb(event)
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
 async def search_verb(event):
@@ -128,9 +150,9 @@ async def search_verb(event):
         for match in Dhatu.search(search_key)
     ]
     if not matches:
-        await event.reply('तम् धातुम् धातुरूपम् वा न जानामि।')
+        await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
     else:
-        await event.reply('\n---\n'.join(matches))
+        await event.respond('\n---\n'.join(matches))
 
 
 @bot.on(events.NewMessage(pattern='^/verbforms'))
