@@ -117,7 +117,7 @@ class DhatuPatha:
         self.search_keys = search_keys or self.SEARCH_KEYS
         self.display_keys = display_keys or self.DISPLAY_KEYS
 
-        with open(dhatu_file,encoding='utf-8') as f:
+        with open(dhatu_file, encoding='utf-8') as f:
             self.index = json.load(f)
 
         self.forms = {}

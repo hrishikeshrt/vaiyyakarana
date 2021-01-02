@@ -15,6 +15,5 @@ class TelegramConfig:
     bot_user = ''
     bot_name = ''
     bot_token = ''
-    start_message = ''
 
 ###############################################################################

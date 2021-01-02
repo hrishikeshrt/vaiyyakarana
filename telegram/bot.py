@@ -24,7 +24,23 @@ bot = TelegramClient('Bot Session', config.api_id, config.api_hash)
 
 ###############################################################################
 
+transliteration_config = {
+    'schemes': {
+        sanscript.DEVANAGARI: 'Devanagari',
+        sanscript.HK: 'Harvard-Kyoto',
+        sanscript.VELTHUIS: 'Velthuis',
+        sanscript.ITRANS: 'ITRANS'
+    },
+    'default': sanscript.DEVANAGARI,
+    'internal': sanscript.DEVANAGARI
+}
+
+###############################################################################
+
 transliteration_scheme = {}
+
+###############################################################################
+
 
 def format_word_match(shabda):
     output = []
@@ -88,62 +104,88 @@ def format_verb_forms(dhatu, rupaani):
 @bot.on(events.NewMessage(pattern='/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
-    keyboard = [
-        [  
-            Button.inline("Devanagari", data='input_devanagari'), 
-            Button.inline("Harvard-Kyoto", data='input_hk')
-        ],
-        [
-            Button.inline("Velthuis", data='input_velthuis'), 
-            Button.inline("ITRANS", data='input_itrans')
-        ]
-    ] 
+    global transliteration_config
     global transliteration_scheme
+
+    keyboard = []
+    current_row = []
+    row_length = 2
+
+    for scheme, scheme_name in transliteration_config['schemes'].items():
+        current_row.append(
+            Button.inline(scheme_name, data=f'input_{scheme}')
+        )
+        if len(current_row) == row_length:
+            keyboard.append(current_row)
+            current_row = []
+
     sender_id = event.sender.id
     if sender_id not in transliteration_scheme:
-        transliteration_scheme[sender_id] = {'input':sanscript.DEVANAGARI,'output':sanscript.DEVANAGARI}
-    await event.respond(config.start_message+'\n'+'कृपया  एकां लेखनविधिं वृणोतु –', buttons=keyboard,parse_mode='html')
+        transliteration_scheme[sender_id] = {
+            'input': transliteration_config['default'],
+            'output': transliteration_config['default']
+        }
+
+    start_message = [
+        '<h1>स्वागतम्।</h1>',
+        'अहम् धातुपाठः शब्दपाठः च जानामि। कृपया पृच्छतु।'
+        'कृपया  एकां लेखनविधिं वृणोतु –'
+    ]
+    await event.respond(
+        '\n'.join(start_message), buttons=keyboard, parse_mode='html'
+    )
     raise events.StopPropagation
+
+###############################################################################
+
 
 @bot.on(events.CallbackQuery)
 async def set_scheme(event):
+    '''Set transliteration scheme for user'''
     global transliteration_scheme
     data = event.data.decode('utf-8')
     sender_id = event.sender.id
-    transliteration_scheme_map = {'devanagari': sanscript.DEVANAGARI, 'hk': sanscript.HK, 'velthuis': sanscript.VELTHUIS,'itrans': sanscript.ITRANS}
     indx, scheme = data.split('_')
     if indx == 'query':
         await redirect(event)
     else:
-        transliteration_scheme[sender_id][indx] = transliteration_scheme_map[scheme]
+        transliteration_scheme[sender_id][indx] = scheme
         await event.respond(f'वृणीता - {scheme}\nअन्वेषणीयपदं लिखतु –')
 
 
 @bot.on(events.NewMessage(pattern='^[^/]'))
 async def search(event):
     text = 'query_' + event.text
-    keyboard = [[   Button.inline("सुबन्तम्",data=text+' sup'),
-                             Button.inline("तिङन्तम्",data=text+' tiG') ]]
-    await event.respond(f'दत्तपदस्य प्रकारं वृणोतु –',buttons=keyboard)
+    keyboard = [
+        [Button.inline("सुबन्तम्", data=text+' sup'),
+         Button.inline("तिङन्तम्", data=text+' tiG')]
+    ]
+    await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
 
 
 async def redirect(event):
-    print('here')
+    print("Redirect")
     data = event.data.decode('utf-8')
     text, form = data.split('_')[1].split()
     if form == 'sup':
         event.text = '/wordsearch ' + text
         await search_word(event)
-    elif form =='tiG':
+    elif form == 'tiG':
         event.text = '/verbsearch ' + text
         await search_verb(event)
+
 
 @bot.on(events.NewMessage(pattern='^/verbsearch'))
 async def search_verb(event):
     global transliteration_scheme
+    global transliteration_config
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
+    search_key = sanscript.transliterate(
+        search_key,
+        transliteration_scheme[sender_id]['input'],
+        transliteration_config['default']
+    )
     print(f"VERBSEARCH: {search_key}")
     matches = [
         format_verb_match(match)
@@ -171,16 +213,22 @@ async def show_verb_forms(event):
 @bot.on(events.NewMessage(pattern='^/wordsearch'))
 async def search_word(event):
     global transliteration_scheme
+    global transliteration_config
+
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
+    search_key = sanscript.transliterate(
+        search_key,
+        transliteration_scheme[sender_id]['input'],
+        transliteration_config['default']
+    )
     print(f"WORDSEARCH: {search_key}")
     matches = [
         format_word_match(match)
         for match in Shabda.search(search_key)
     ]
     if not matches:
-        await event.reply('तत् शब्दम् शब्दरूपम् वा न जानामि।')
+        await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
     else:
         await event.reply('\n---\n'.join(matches))
 
