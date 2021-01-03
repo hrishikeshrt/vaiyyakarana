@@ -127,6 +127,7 @@ async def help(event):
 
     help_message = [
         '/help - ',
+        '/setscheme - '
         '/dhatu - ',
         '/verb - ',
         '/shabd - ',
@@ -173,6 +174,7 @@ async def set_scheme(event):
 async def scheme_handler(event):
     print("Scheme selected")
     global transliteration_scheme
+    global transliteration_config
     sender_id = event.sender.id
 
     if sender_id not in transliteration_scheme:
@@ -187,10 +189,19 @@ async def scheme_handler(event):
     transliteration_scheme[sender_id][indx] = scheme
 
     response_message = [
+        'कृपया  एकां लेखनविधिं वृणोतु –'
+    ]
+    
+    # Editing last message, removing keyboard
+    await event.edit('\n'.join(response_message), buttons=Button.clear(), parse_mode='html')
+    
+
+    response_message = [
         'धन्यवादः।',
-        ' '.join(['वृणीता - ', scheme]),
+        ' '.join(['वृणीता - ', transliteration_config['schemes'][scheme]]),
         'कृपया पृच्छतु।'
     ]
+
     await event.respond('\n'.join(response_message))
 
 
@@ -237,14 +248,18 @@ async def search_verb(event):
         transliteration_config['default']
     )
     print(f"VERBSEARCH: {search_key}")
-    matches = [
-        format_verb_match(match)
-        for match in Dhatu.search(search_key)
-    ]
-    if not matches:
-        await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
+
+    if search_key=="":
+        await event.respond('USAGE: /verbsearch धातुम्/ धातुरूपम्')
     else:
-        await event.respond('\n---\n'.join(matches))
+        matches = [
+            format_verb_match(match)
+            for match in Dhatu.search(search_key)
+        ]
+        if not matches:
+            await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
+        else:
+            await event.respond('\n---\n'.join(matches))
 
 
 @bot.on(events.NewMessage(pattern='^/verbforms'))
@@ -273,14 +288,18 @@ async def search_word(event):
         transliteration_config['default']
     )
     print(f"WORDSEARCH: {search_key}")
-    matches = [
-        format_word_match(match)
-        for match in Shabda.search(search_key)
-    ]
-    if not matches:
-        await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+
+    if search_key=="":
+        await event.respond('USAGE: /wordsearch शब्दम्/ शब्दरूपम्')
     else:
-        await event.reply('\n---\n'.join(matches))
+        matches = [
+            format_word_match(match)
+            for match in Shabda.search(search_key)
+        ]
+        if not matches:
+            await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+        else:
+            await event.reply('\n---\n'.join(matches))
 
 
 @bot.on(events.NewMessage(pattern='^/wordforms'))
