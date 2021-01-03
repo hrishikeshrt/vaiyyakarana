@@ -165,6 +165,8 @@ async def set_scheme(event):
     # Asking user to choose a keyboard scheme
     await event.respond('\n'.join(response_message), buttons=keyboard, parse_mode='html')
     print("Scheme asked")
+    while event.data.decode('utf-8')=="":
+        pass
 
 
 ###############################################################################
@@ -172,7 +174,6 @@ async def set_scheme(event):
 
 @bot.on(events.CallbackQuery(pattern='^scheme_'))
 async def scheme_handler(event):
-    print("Scheme selected")
     global transliteration_scheme
     global transliteration_config
     sender_id = event.sender.id
@@ -184,9 +185,10 @@ async def scheme_handler(event):
         }
 
     data = event.data.decode('utf-8')
-    indx, scheme = data.split('_')
+    _, scheme = data.split('_')
         
-    transliteration_scheme[sender_id][indx] = scheme
+    transliteration_scheme[sender_id]['input'] = scheme
+    print(' '.join(['Scheme selected:', indx, scheme]))
 
     response_message = [
         'कृपया  एकां लेखनविधिं वृणोतु –'
