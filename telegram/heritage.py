@@ -96,6 +96,9 @@ class HeritageOutput:
         # Find Relevant Body Children
         self.blocks = self.body.find_all(recursive=False)
 
+    def extract_analysis(self):
+        pass
+
     def __repr__(self):
         return repr(self.soup)
 
@@ -119,9 +122,13 @@ class HeritagePlatform:
             'shell': 'indexer',
             'web': 'sktindex.cgi'
         },
-        'generator': {
+        'declension': {
             'shell': 'declension',
             'web': 'sktdeclin.cgi'
+        },
+        'conjugation': {
+            'shell': 'conjugation',
+            'web': 'sktconjug.cgi'
         },
         'lemma': {
             'shell': 'lemmatizer',
@@ -130,14 +137,16 @@ class HeritagePlatform:
     }
     METHODS = ['shell', 'web']
 
-    def __init__(self, repository_dir, base_url=None, method='shell'):
+    def __init__(self, repo_dir, base_url=None, method='shell', font='deva'):
         """
         Initialize Heritage Class
 
         Parameters
         ----------
-        repository_dir : str
+        repo_dir : str
             Path to the Heritage_Platform repository.
+            The directory should contain 'ML' sub-directory,
+            which further contains the scripts
         base_url : str, optional
             URL for the Heritage Platform Mirror.
             If None, the official INRIA website will be used.
@@ -150,41 +159,48 @@ class HeritagePlatform:
             The default is 'shell'.
         """
         self.base_url = self.INRIA_URL if base_url is None else base_url
-        self.heritage_dir = repository_dir
+        self.heritage_dir = repo_dir
         self.scripts_dir = os.path.join(self.heritage_dir, 'ML')
         self.method = None
+        self.font = None
+
         self.set_method(method)
+        self.set_font(font)
 
     ###########################################################################
     # Utilities (Actions)
 
-    def get_analysis(self):
+    def get_analysis(self, word=True):
         """
-        Under Construction.
-        Utility to obtain morphological analysis using Reader Companion
-        TODO: Port get_analysis.py and parse_analysis.py
+        Utility to obtain morphological analyses using Reader Companion
 
         Returns
         -------
-        result : dict
-            Result
+        result : list
+            List of valid morphological analyses
         """
+        opt_st = 'f' if word else 't'
         options = {
-            'lex': 'SH',  # Lexicon (MW) Monier-Williams (SH) Heritage
+            'lex': 'MW',   # Lexicon (MW) Monier-Williams (SH) Heritage
             'cache': 't',  # Use Cache (t)rue, (f)alse
-            'st': 't',  # Sentence (t)rue, Word (f)alse
-            'us': 't',  # Unsandhied (t)rue, (f)alse
-                        # if 'us' is 'f', "ca eva" is parsed as "ca_eva",
-                        # "tathā eva" as "tathā_eva" etc.
-            'cp': 't',  # Full Parser Strength (t)rue, (f)alse
-            't': 'VH',  # Transliteration Scheme (Must be VH)
-            'mode': 'p',  # Parse Mode (p)arse, (g)raph, (s)ummary
+            'st': opt_st,  # Sentence (t)rue, Word (f)alse
+            'us': 't',     # Unsandhied (t)rue, (f)alse
+                           # if 'us' is 'f', "ca eva" is parsed as "ca_eva",
+                           # "tathā eva" as "tathā_eva" etc.
+            'cp': 't',     # Full Parser Strength (t)rue, (f)alse
+            't': 'VH',     # Transliteration Scheme (Must be VH)
+            'mode': 'p',   # Parse Mode (p)arse, (g)raph, (s)ummary
+            'font': self.font,
+                           # Output Display Font (deva)nagari (roma)n
             'topic': '',
             'corpmode': '',
             'corpdir': '',
             'sentno': ''
         }
-        return options
+        result = self.get_result('reader', options)
+        output = HeritageOutput(result)
+
+        return output
 
     # ----------------------------------------------------------------------- #
 
@@ -211,7 +227,8 @@ class HeritagePlatform:
         options = {
             'lex': lexicon,
             't': 'VH',
-            'q': self.prepare_input(word)
+            'q': self.prepare_input(word),
+            'font': self.font
         }
         result = self.get_result('search', options)
         output = HeritageOutput(result)
@@ -243,7 +260,8 @@ class HeritagePlatform:
         options = {
             't': 'VH',
             'q': self.prepare_input(word),
-            'c': category
+            'c': category,
+            'font': self.font
         }
         result = self.get_result('lemma', options)
         output = HeritageOutput(result)
@@ -257,9 +275,25 @@ class HeritagePlatform:
             'lex': lexicon,
             't': 'VH',
             'q': self.prepare_input(word),
-            'g': self.identify_gender(gender)
+            'g': self.identify_gender(gender),
+            'font': self.font
         }
-        result = self.get_result('generator', options)
+        result = self.get_result('declension', options)
+        output = HeritageOutput(result)
+
+        return output
+
+    # ----------------------------------------------------------------------- #
+
+    def get_verb_forms(self, word, gana, lexicon='MW'):
+        options = {
+            'lex': lexicon,
+            't': 'VH',
+            'q': self.prepare_input(word),
+            'c': gana,
+            'font': self.font
+        }
+        result = self.get_result('conjugation', options)
         output = HeritageOutput(result)
 
         return output
@@ -403,6 +437,22 @@ class HeritagePlatform:
             self.method = 'shell'
         return False
 
+    def set_font(self, font):
+        """
+        Set the font for Sanskrit output
+
+        Valid fonts are,
+            * deva: Devanagari
+            * roma: Roman (IAST)
+        """
+        if font.lower() in ['deva', 'roma']:
+            self.font = font.lower()
+            return True
+        log.warning(f"Invalid font: '{font}'")
+        if self.font is None:
+            self.font = 'deva'
+        return False
+
     ###########################################################################
     # URL or Path Builders
 
@@ -434,7 +484,7 @@ class HeritagePlatform:
         }
         for gender_key, gender_list in genders.items():
             for g in gender_list:
-                if gender.startswith(g):
+                if gender.lower().startswith(g):
                     return gender_key
 
     @staticmethod
