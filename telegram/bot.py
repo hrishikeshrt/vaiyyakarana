@@ -106,24 +106,36 @@ async def start(event):
     """Send a message when the command /start is issued."""
     
     start_message = [
-        '<h1>स्वागतम्।</h1>'
+        '<h1>स्वागतम्।</h1>',
+       'अहम् धातुपाठः शब्दपाठः च जानामि।', 
     ]
+
     await event.respond('\n'.join(start_message), parse_mode='html')
+
+    # call help handler
+    await help(event)
 
     # call to scheme setting
     await set_scheme(event)
 
-    start_message = [
-       'अहम् धातुपाठः शब्दपाठः च जानामि। कृपया पृच्छतु।', 
-    ]
-
-    # call help handler
-
-    await event.respond('\n'.join(start_message))
-
     raise events.StopPropagation
 
-###############################################################################
+
+@bot.on(events.NewMessage(pattern='^/help'))
+async def help(event):
+    """Send a message when the command /help is issued."""
+
+    help_message = [
+        '/help - ',
+        '/dhatu - ',
+        '/verb - ',
+        '/shabd - ',
+        '/word - ',
+        '/sandhi_samaas - ',
+        '/split - '
+    ]
+
+    await event.respond('\n'.join(help_message))
 
 
 @bot.on(events.NewMessage(pattern='^/setscheme'))
@@ -136,6 +148,7 @@ async def set_scheme(event):
     current_row = []
     row_length = 2
 
+    # Populating keyboard
     for scheme, scheme_name in transliteration_config['schemes'].items():
         current_row.append(
             Button.inline(scheme_name, data=f'scheme_{scheme}')
@@ -148,13 +161,17 @@ async def set_scheme(event):
         'कृपया  एकां लेखनविधिं वृणोतु –'
     ]
     
+    # Asking user to choose a keyboard scheme
     await event.respond('\n'.join(response_message), buttons=keyboard, parse_mode='html')
-    
-    # wait for user response
+    print("Scheme asked")
+
+
+###############################################################################
 
 
 @bot.on(events.CallbackQuery(pattern='^scheme_'))
 async def scheme_handler(event):
+    print("Scheme selected")
     global transliteration_scheme
     sender_id = event.sender.id
 
@@ -172,6 +189,7 @@ async def scheme_handler(event):
     response_message = [
         'धन्यवादः।',
         ' '.join(['वृणीता - ', scheme]),
+        'कृपया पृच्छतु।'
     ]
     await event.respond('\n'.join(response_message))
 
