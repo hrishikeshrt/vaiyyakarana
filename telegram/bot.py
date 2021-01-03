@@ -104,10 +104,10 @@ def format_verb_forms(dhatu, rupaani):
 @bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
-    
+
     start_message = [
         '<h1>स्वागतम्।</h1>',
-       'अहम् धातुपाठः शब्दपाठः च जानामि।', 
+       'अहम् धातुपाठः शब्दपाठः च जानामि।',
     ]
 
     await event.respond('\n'.join(start_message), parse_mode='html')
@@ -127,12 +127,11 @@ async def help(event):
 
     help_message = [
         '/help - ',
-        '/setscheme - '
+        '/setscheme - ',
         '/dhatu - ',
         '/verb - ',
         '/shabd - ',
         '/word - ',
-        '/sandhi_samaas - ',
         '/split - '
     ]
 
@@ -161,7 +160,7 @@ async def set_scheme(event):
     response_message = [
         'कृपया  एकां लेखनविधिं वृणोतु –'
     ]
-    
+
     # Asking user to choose a keyboard scheme
     await event.respond('\n'.join(response_message), buttons=keyboard, parse_mode='html')
     print("Scheme asked")
@@ -186,17 +185,12 @@ async def scheme_handler(event):
 
     data = event.data.decode('utf-8')
     _, scheme = data.split('_')
-        
-    transliteration_scheme[sender_id]['input'] = scheme
-    print(' '.join(['Scheme selected:', indx, scheme]))
 
-    response_message = [
-        'कृपया  एकां लेखनविधिं वृणोतु –'
-    ]
-    
+    transliteration_scheme[sender_id]['input'] = scheme
+
     # Editing last message, removing keyboard
-    await event.edit('\n'.join(response_message), buttons=Button.clear(), parse_mode='html')
-    
+    last_message = await event.get_message()
+    await event.edit(last_message.raw_text, buttons=Button.clear(), parse_mode='html')
 
     response_message = [
         'धन्यवादः।',
@@ -231,7 +225,7 @@ async def redirect(event):
     if form == 'sup':
         event.text = '/wordsearch ' + text
         await search_word(event)
-    elif form == 'tiG': 
+    elif form == 'tiG':
         event.text = '/verbsearch ' + text
         await search_verb(event)
 
