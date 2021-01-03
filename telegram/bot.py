@@ -85,7 +85,7 @@ def format_verb_forms(dhatu, rupaani):
 ###############################################################################
 
 
-@bot.on(events.NewMessage(pattern='/start'))
+@bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
     keyboard = [
@@ -102,10 +102,10 @@ async def start(event):
     sender_id = event.sender.id
     if sender_id not in transliteration_scheme:
         transliteration_scheme[sender_id] = {'input':sanscript.DEVANAGARI,'output':sanscript.DEVANAGARI}
-    await event.respond(config.start_message+'\n'+'कृपया  एकां लेखनविधिं वृणोतु –', buttons=keyboard,parse_mode='html')
+    await event.respond(config.start_message+'\n'+'कृपया एकां लेखनविधिं वृणोतु –', buttons=keyboard, parse_mode='html')
     raise events.StopPropagation
 
-@bot.on(events.CallbackQuery)
+@bot.on(events.CallbackQuery(pattern='^input_devanagari|hk|velthius|itrans'))
 async def set_scheme(event):
     global transliteration_scheme
     data = event.data.decode('utf-8')
@@ -196,6 +196,32 @@ async def show_word_forms(event):
     else:
         print(f"INVALID_WORDINDEX: {shabda_idx}")
         await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
+
+@bot.on(events.NewMessage(pattern='^/sandhisplit'))
+async def sandhi_split(event):
+    """Output the sandhi split of the input word."""
+    global transliteration_scheme
+    search_key = ' '.join(event.text.split()[1:])
+    sender_id = event.sender.id
+    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
+    print(f"SANDHISPLIT: {search_key}")
+    if search_key=="":
+        await event.respond('USAGE: /sandhisplit शब्द')
+    else:
+        pass
+
+@bot.on(events.NewMessage(pattern='^/samaassplit'))
+async def sandhi_split(event):
+    """Output the samaas split of the input word."""
+    global transliteration_scheme
+    search_key = ' '.join(event.text.split()[1:])
+    sender_id = event.sender.id
+    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
+    print(f"SAMAASSPLIT: {search_key}")
+    if search_key=="":
+        await event.respond('USAGE: /samaassplit शब्द')
+    else:
+        pass
 
 ###############################################################################
 
