@@ -173,6 +173,15 @@ class HeritageOutput:
             analysis['root'] = match.group(1)
             analysis['analyses'] = match.group(2).split('|')
         return analysis
+    
+    def extract_inflections(self):
+        tab = self.soup.find('table',class_='inflexion')
+        rows = tab.find_all('tr')
+        output = []
+        for row in rows:
+            cols = [col.get_text() for col in row.find_all('th')]
+            output.append(cols)
+        return output
 
     def __repr__(self):
         return repr(self.soup)
@@ -357,7 +366,7 @@ class HeritagePlatform:
         result = self.get_result('declension', options)
         output = HeritageOutput(result)
 
-        return output
+        return output.extract_inflections()
 
     # ----------------------------------------------------------------------- #
 
