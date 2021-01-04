@@ -7,20 +7,40 @@ Created on Fri Nov 27 19:04:19 2020
 """
 
 from telethon import TelegramClient, events, sync, Button
+from indic_transliteration import sanscript
 
 import dhatupatha
 import shabdapatha
-from config import TelegramConfig as config
-from indic_transliteration import sanscript
+import heritage
+
+import config
 
 ###############################################################################
 
 Dhatu = dhatupatha.DhatuPatha('dhatu.json')
 Shabda = shabdapatha.ShabdaPatha('shabda.json')
 
+if not config.hellwig_splitter_dir:
+    class NonSplitter:
+        def split(self, sentence):
+            return "अहम् विग्रहः कर्तुम् न शक्नोमि।"
+    Vigraha = NonSplitter()
+else:
+    import splitter
+    Vigraha = splitter.Splitter(config.hellwig_splitter_dir)
+
+if not config.heritage_platform_dir:
+    Heritage = heritage.HeritagePlatform(config.heritage_platform_dir)
+else:
+    Heritage = heritage.HeritagePlatform('', method='web')
+
 ###############################################################################
 
-bot = TelegramClient('Bot Session', config.api_id, config.api_hash)
+bot = TelegramClient(
+    'Bot Session',
+    config.TelegramConfig.api_id,
+    config.TelegramConfig.api_hash
+)
 
 ###############################################################################
 
@@ -237,15 +257,15 @@ async def search(event):
         shabda_command = [ sanscript.transliterate('शब्द', transliteration_config['default'], output_scheme)
                     for output_scheme in transliteration_config['schemes'] ]
         shabda_command = shabda_command + ['shabd']
-        
+
         dhaturup_command = [ sanscript.transliterate('धातुरूप', transliteration_config['default'], output_scheme)
                     for output_scheme in transliteration_config['schemes'] ]
         dhaturup_command = dhatu_command + ['dhaturup']
-        
+
         shabdarup_command = [ sanscript.transliterate('शब्दरूप', transliteration_config['default'], output_scheme)
                     for output_scheme in transliteration_config['schemes'] ]
         shabdarup_command = shabdarup_command + ['shabdarup']
-        
+
         if keys[0] in dhatu_command:
             await search_verb(event)
         elif keys[0] in shabda_command:
@@ -289,7 +309,7 @@ async def redirect(event):
     elif form == 'tiG':
         event.text = '/dhatu ' + text
         await search_verb(event)
-   
+
 ###############################################################################
 
 
@@ -348,7 +368,7 @@ async def search_word(event):
     )
     print(f"WORDSEARCH: {search_key}")
 
-    if search_key=="":
+    if search_key == "":
         await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
         matches = [
@@ -359,8 +379,12 @@ async def search_word(event):
             await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
         else:
             for match in matches:
-                keyboard = [[Button.inline('रूपं दर्शयतु',data = f'wordsearch_{match[1]}')]]
-                await event.respond(match[0]+'\n---\n',buttons=keyboard)
+                keyboard = [[
+                    Button.inline(
+                        'रूपं दर्शयतु', data=f'wordsearch_{match[1]}'
+                    )
+                ]]
+                await event.respond(match[0]+'\n---\n', buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/shabdarupa'))
@@ -379,21 +403,25 @@ async def show_word_forms(event):
 async def sandhi_samaasa_split(event):
     """Output the sandhi split of the input word."""
     global transliteration_scheme
-    search_key = ' '.join(event.text.split()[1:])
+    input_line = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],transliteration_config['internal'])
-    print(f"SPLIT: {search_key}")
-    if search_key=="":
+    input_line = sanscript.transliterate(
+        input_line,
+        transliteration_scheme[sender_id]['input'],
+        transliteration_config['internal']
+    )
+    split_line = Vigraha.split(input_line)
+    print(f"SPLIT: '{input_line}' --> '{split_line}'")
+    if input_line == "":
         await event.respond('USAGE: /split पद')
     else:
-        pass
-
+        await event.reply(split_line)
 
 ###############################################################################
 
 
 def main():
-    bot.start(bot_token=config.bot_token)
+    bot.start(bot_token=config.TelegramConfig.bot_token)
     bot.run_until_disconnected()
 
 

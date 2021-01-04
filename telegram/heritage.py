@@ -20,10 +20,6 @@ UNIX Shell
 
 # Default input needs to be in the devanagari format
 # HeritagePlatform.dn2vh() function will convert this to VH
-
-# TODO: Windows Compatibility
-    * SIGALRM
-    * subprocess
 """
 
 import os
@@ -126,6 +122,7 @@ class HeritageOutput:
         self.blocks = self.body.find_all()
 
     def extract_analysis(self):
+        """Extract analysis from HTML"""
         if self.title.text != 'Sanskrit Reader Companion':
             log.error("Invalid output page.")
             return None
@@ -163,8 +160,23 @@ class HeritageOutput:
             solutions.append(solution)
         return solutions
 
+    def extract_declensions(self):
+        """Extract declensions from HTML"""
+        tab = self.soup.find('table', class_='inflexion')
+        rows = tab.find_all('tr')
+        output = []
+        for row in rows:
+            cols = [col.get_text() for col in row.find_all('th')]
+            output.append(cols)
+        output = output[:2] + output[3:] + [output[2]]
+        return output
+
     @staticmethod
     def parse_analysis(text):
+        """
+        Parse analysis of a single word
+        Analysis Format is: [root]{analysis_1 | analysis_2 | ..}
+        """
         pattern = r'^\[([^\]]*)\]\{([^\}]*)\}$'
         match = re.search(pattern, text.strip(), flags=re.DOTALL)
         analysis = {}
@@ -173,15 +185,6 @@ class HeritageOutput:
             analysis['root'] = match.group(1)
             analysis['analyses'] = match.group(2).split('|')
         return analysis
-    
-    def extract_inflections(self):
-        tab = self.soup.find('table',class_='inflexion')
-        rows = tab.find_all('tr')
-        output = []
-        for row in rows:
-            cols = [col.get_text() for col in row.find_all('th')]
-            output.append(cols)
-        return output
 
     def __repr__(self):
         return repr(self.soup)
@@ -285,7 +288,7 @@ class HeritagePlatform:
         result = self.get_result('reader', options)
         output = HeritageOutput(result)
 
-        return output
+        return output.extract_analysis()
 
     # ----------------------------------------------------------------------- #
 
@@ -355,7 +358,7 @@ class HeritagePlatform:
 
     # ----------------------------------------------------------------------- #
 
-    def get_word_forms(self, word, gender, lexicon='MW'):
+    def get_declensions(self, word, gender, lexicon='MW'):
         options = {
             'lex': lexicon,
             't': 'VH',
@@ -366,11 +369,11 @@ class HeritagePlatform:
         result = self.get_result('declension', options)
         output = HeritageOutput(result)
 
-        return output.extract_inflections()
+        return output.extract_declensions()
 
     # ----------------------------------------------------------------------- #
 
-    def get_verb_forms(self, word, gana, lexicon='MW'):
+    def get_conjugations(self, word, gana, lexicon='MW'):
         options = {
             'lex': lexicon,
             't': 'VH',
