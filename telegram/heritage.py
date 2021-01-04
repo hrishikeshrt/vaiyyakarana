@@ -30,7 +30,6 @@ import os
 import re
 import time
 import random
-import signal
 import logging
 import requests
 import subprocess
@@ -51,7 +50,6 @@ def timeout_handler(signum, frame):
     raise TimeoutError("Time limit exceeded.")
 
 
-signal.signal(signal.SIGALRM, timeout_handler)
 
 
 ###############################################################################
@@ -450,7 +448,6 @@ class HeritagePlatform:
         """
         query_string = '&'.join([f'{k}={v}' for k, v in options.items()])
         environment = {'QUERY_STRING': query_string}
-        signal.alarm(timeout)
         try:
             result_header = 'Content-Type: text/html\n\n'
             result = subprocess.check_output(
@@ -460,7 +457,6 @@ class HeritagePlatform:
         except TimeoutError:
             log.error("TimeoutError")
             return None
-        signal.alarm(0)
         return result
 
     # ----------------------------------------------------------------------- #
