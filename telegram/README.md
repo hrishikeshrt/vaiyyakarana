@@ -4,9 +4,11 @@ Uses https://docs.telethon.dev/en/latest/
 
 
 ## Dependencies:
-* python 3.8
+* python-3.8
 * indic_transliteration-2.1.0
 * telethon-1.18.2
+* requests-2.25.1
+* beautifulsoup4-4.9.3
 
 ## Instructions:
 
@@ -17,7 +19,7 @@ Uses https://docs.telethon.dev/en/latest/
 
 Bot is now online and can be messaged directly.
 
-## Supported Operations
+## Supported Operations 
 1. /verbsearch \<verb form\>
 
     Eg: /verbsearch भवति 

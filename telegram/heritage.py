@@ -25,7 +25,6 @@ UNIX Shell
 import os
 import time
 import random
-import signal
 import logging
 import requests
 import subprocess
@@ -46,7 +45,6 @@ def timeout_handler(signum, frame):
     raise TimeoutError("Time limit exceeded.")
 
 
-signal.signal(signal.SIGALRM, timeout_handler)
 
 
 ###############################################################################
@@ -183,8 +181,13 @@ class HeritagePlatform:
         result = self.get_result('search', options)
         soup = BeautifulSoup(result, 'html.parser')
         matches = soup.find('table', class_='yellow_cent')
+        matches = matches.find_all('div',class_='latin12')
+        out = []
+        for match in matches:
+            out.append([match.a.get('href'),match.get_text()])
 
-        return matches
+
+        return out
 
     # ----------------------------------------------------------------------- #
 
@@ -297,13 +300,11 @@ class HeritagePlatform:
         """
         query_string = '&'.join([f'{k}={v}' for k, v in options.items()])
         environment = {'QUERY_STRING': query_string}
-        signal.alarm(timeout)
         try:
             result = str(subprocess.check_output(path, env=environment))
         except TimeoutError:
             log.error("TimeoutError")
             return None
-        signal.alarm(0)
         return result
 
     # ----------------------------------------------------------------------- #
@@ -342,7 +343,7 @@ class HeritagePlatform:
 
     def get_url(self, action):
         """URL Builder"""
-        return urllib.parse.urljoin(self.base_url, self.ACTIONS[action]['cgi'])
+        return urllib.parse.urljoin(self.base_url, self.ACTIONS[action]['web'])
 
     def get_path(self, action):
         """Path Builder"""
