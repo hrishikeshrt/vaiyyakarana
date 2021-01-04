@@ -140,7 +140,7 @@ async def start(event):
 
     start_message = [
         '<h1>स्वागतम्।</h1>',
-       'अहम् धातुपाठः शब्दपाठः च जानामि।',
+        'अहम् धातुपाठः शब्दपाठः च जानामि।',
     ]
 
     await event.respond('\n'.join(start_message), parse_mode='html')
@@ -197,11 +197,12 @@ async def set_scheme(event):
     ]
 
     # Asking user to choose a keyboard scheme
-    await event.respond('\n'.join(response_message), buttons=keyboard, parse_mode='html')
+    await event.respond(
+        '\n'.join(response_message), buttons=keyboard, parse_mode='html'
+    )
     print("Scheme asked")
-    while event.data.decode('utf-8')=="":
+    while event.data.decode('utf-8') == "":
         pass
-
 
 ###############################################################################
 
@@ -225,7 +226,9 @@ async def scheme_handler(event):
 
     # Editing last message, removing keyboard
     last_message = await event.get_message()
-    await event.edit(last_message.raw_text, buttons=Button.clear(), parse_mode='html')
+    await event.edit(
+        last_message.raw_text, buttons=Button.clear(), parse_mode='html'
+    )
 
     response_message = [
         'धन्यवादः।',
@@ -239,6 +242,7 @@ async def scheme_handler(event):
 @bot.on(events.CallbackQuery(pattern='^query_'))
 async def query_handler(event):
     await redirect(event)
+
 
 @bot.on(events.CallbackQuery(pattern='^[wordsearch_]|[verbsearch_]'))
 async def query__handler(event):
@@ -257,20 +261,44 @@ async def search(event):
 
     if len(keys) == 2:
         # Check if first word is dhaatu or shabda in Latin or Devanagari
-        dhatu_command = [ sanscript.transliterate('धातु', transliteration_config['default'], output_scheme)
-                    for output_scheme in transliteration_config['schemes'] ]
+        dhatu_command = [
+            sanscript.transliterate(
+                'धातु',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
         dhatu_command = dhatu_command + ['dhatu']
 
-        shabda_command = [ sanscript.transliterate('शब्द', transliteration_config['default'], output_scheme)
-                    for output_scheme in transliteration_config['schemes'] ]
+        shabda_command = [
+            sanscript.transliterate(
+                'शब्द',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
         shabda_command = shabda_command + ['shabd']
 
-        dhaturup_command = [ sanscript.transliterate('धातुरूप', transliteration_config['default'], output_scheme)
-                    for output_scheme in transliteration_config['schemes'] ]
+        dhaturup_command = [
+            sanscript.transliterate(
+                'धातुरूप',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
         dhaturup_command = dhatu_command + ['dhaturup']
 
-        shabdarup_command = [ sanscript.transliterate('शब्दरूप', transliteration_config['default'], output_scheme)
-                    for output_scheme in transliteration_config['schemes'] ]
+        shabdarup_command = [
+            sanscript.transliterate(
+                'शब्दरूप',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
         shabdarup_command = shabdarup_command + ['shabdarup']
 
         if keys[0] in dhatu_command:
@@ -288,7 +316,7 @@ async def search(event):
         text = f'query_{event_text}'
         keyboard = [
             [Button.inline("सुबन्तम्", data=text+' sup'),
-            Button.inline("तिङन्तम्", data=text+' tiG')]
+             Button.inline("तिङन्तम्", data=text+' tiG')]
         ]
         await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
     elif len(keys) > 2:
@@ -381,18 +409,43 @@ async def search_word_new(event):
     if search_key == "":
         await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
-        matches = Heritage.get_analysis(search_key)
-        matches = [
-            format_word_match(match)
-            for match in Shabda.search(search_key)
-        ]
+        matches = []
+        grouped_matches = []
+        for solution in Heritage.get_analysis(search_key):
+            has_gender = False
+            grouped = {}
+            grouped['genders'] = {}
+            for analysis in solution['words'][0]['analyses']:
+                grouped['root'] = solution['words'][0]['root']
+                match = {}
+                match['root'] = solution['words'][0]['root']
+                for x in analysis:
+                    for a_key, a_values in heritage.HERITAGE_LANG.items():
+                        if x in a_values:
+                            match[a_key] = a_values[x]
+                            if a_key == 'gender':
+                                has_gender = True
+
+                if has_gender:
+                    if match['gender'] not in grouped['genders']:
+                        grouped['genders'][match['gender']] = []
+
+                    grouped['genders'][match['gender']].append({
+                        'case': match['case'],
+                        'number': match['number']
+                    })
+                    matches.append(match)
+
+            if grouped['genders']:
+                grouped_matches.append(grouped)
+
         if not matches:
             await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
         else:
-            for match in matches:
+            for match in matches: # grouped_matches maybe
                 keyboard = [[
                     Button.inline(
-                        'रूपं दर्शयतु', data=f'wordsearch_{match[1]}'
+                        'रूपं दर्शयतु', data=f'wordsearch_#root_#linga'
                     )
                 ]]
                 await event.respond(match[0], buttons=keyboard)
@@ -443,6 +496,19 @@ async def show_word_forms(event):
     else:
         print(f"INVALID_WORDINDEX: {shabda_idx}")
         await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
+
+
+@bot.on(events.NewMessage(pattern='^/shabdarupa_new'))
+async def show_word_forms_new(event):
+    words = event.text.split()
+    if len(words) == 3:
+        root = words[1]
+        gender = words[2]
+        rupaani = Heritage.get_declensions(root, gender)
+        await event.reply(format_word_forms(root, rupaani))
+    else:
+        await event.reply("USAGE: /shabdarupa root gender")
+
 
 @bot.on(events.NewMessage(pattern='^/split'))
 async def sandhi_samaasa_split(event):

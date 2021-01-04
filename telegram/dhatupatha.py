@@ -30,7 +30,7 @@ DHATU_LANG = {
     "settva": "इडागमः",
     "karma": "कर्म",
     "artha": "अर्थः",
-    "artha_english": "English meaning",
+    "artha_english": "Meaning",
     "split_artha": "अर्थविच्छेदः",
     "split": "विच्छेदः",
     "english": "English",

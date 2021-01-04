@@ -59,7 +59,8 @@ HERITAGE_LANG = {
     'gender': {
         'm': 'पुंलिङ्गम्',
         'f': 'स्त्रीलिङ्गम्',
-        'n': 'नपुंसकलिङ्गम्'
+        'n': 'नपुंसकलिङ्गम्',
+        '*': 'त्रिलिङ्गम्'
     },
     'case': {
         'nom': 'प्रथमा',
@@ -181,7 +182,6 @@ class HeritageOutput:
         match = re.search(pattern, text.strip(), flags=re.DOTALL)
         analysis = {}
         if match:
-            print(text, match.groups())
             analysis['root'] = match.group(1)
             analysis['analyses'] = [
                 [abbrev.replace('.', '') for abbrev in analysis.split()]
@@ -583,7 +583,7 @@ class HeritagePlatform:
             'Mas': ['पु', 'm'],
             'Fem': ['स्त्री', 'f'],
             'Neu': ['नपु', 'n'],
-            'Any': ['*', 'a']
+            'Any': ['*', 'त्रि', 'a']
         }
         for gender_key, gender_list in genders.items():
             for g in gender_list:
