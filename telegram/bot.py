@@ -50,22 +50,28 @@ def format_word_match(shabda):
         if k in shabdapatha.VALUES_LANG:
             output_val = shabdapatha.VALUES_LANG[k][v]
         output.append(f'**{output_key}**: {output_val}')
+        if output_key == 'क्रमाङ्कः':
+            kramanka = output_val
+
     if shabda['desc']:
         output.append(shabda['desc'])
-    return '\n'.join(output)
+    return '\n'.join(output), kramanka
 
 
 def format_verb_match(dhaatu):
     output = []
+    kramanka = ''
     for k, v in dhaatu['dhatu'].items():
         output_key = dhatupatha.DHATU_LANG.get(k, k)
         output_val = v
         if k in dhatupatha.VALUES_LANG:
             output_val = dhatupatha.VALUES_LANG[k][v]
         output.append(f'**{output_key}**: {output_val}')
+        if output_key == 'क्रमाङ्कः':
+            kramanka = output_val
     if dhaatu['desc']:
         output.append(dhaatu['desc'])
-    return '\n'.join(output)
+    return '\n'.join(output), kramanka
 
 
 def format_word_forms(shabda, rupaani):
@@ -205,6 +211,11 @@ async def scheme_handler(event):
 async def query_handler(event):
     await redirect(event)
 
+@bot.on(events.CallbackQuery(pattern='^[wordsearch_]|[verbsearch_]'))
+async def query__handler(event):
+    await redirect2(event)
+
+
 ###############################################################################
 
 
@@ -217,6 +228,16 @@ async def search(event):
     ]
     await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
 
+async def redirect2(event):
+    print('Redirect2')
+    data = event.data.decode('utf-8')
+    form, text = data.split('_')
+    if form == 'wordsearch':
+        event.text = '/wordforms ' + text
+        await show_word_forms(event)
+    elif form == 'verbsearch':
+        event.text = '/verbforms ' + text
+        await show_verb_forms(event)
 
 async def redirect(event):
     print("Redirect")
@@ -228,7 +249,7 @@ async def redirect(event):
     elif form == 'tiG':
         event.text = '/verbsearch ' + text
         await search_verb(event)
-
+   
 ###############################################################################
 
 
@@ -255,7 +276,9 @@ async def search_verb(event):
         if not matches:
             await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
         else:
-            await event.respond('\n---\n'.join(matches))
+                for match in matches:
+                    keyboard = [[Button.inline('रूपं दर्शयतु',data = f'verbsearch_{match[1]}')]]
+                await event.respond(match[0]+'\n---\n',buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/verbforms'))
@@ -295,7 +318,9 @@ async def search_word(event):
         if not matches:
             await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
         else:
-            await event.reply('\n---\n'.join(matches))
+            for match in matches:
+                keyboard = [[Button.inline('रूपं दर्शयतु',data = f'wordsearch_{match[1]}')]]
+                await event.respond(match[0]+'\n---\n',buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/wordforms'))
