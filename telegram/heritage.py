@@ -27,6 +27,7 @@ UNIX Shell
 """
 
 import os
+import re
 import time
 import random
 import signal
@@ -55,6 +56,31 @@ signal.signal(signal.SIGALRM, timeout_handler)
 
 ###############################################################################
 
+HERITAGE_LANG = {
+    'gender': {
+        'm': 'पुंलिङ्गम्',
+        'f': 'स्त्रीलिङ्गम्',
+        'n': 'नपुंसकलिङ्गम्'
+    },
+    'case': {
+        'nom': 'प्रथमा',
+        'acc': 'द्वितीया',
+        'i': 'तृतीया',
+        'dat': 'चतुर्थी',
+        'abl': 'पञ्चमी',
+        'g': 'षष्ठी',
+        'loc': 'सप्तमी',
+        'voc': 'सम्बोधनम्'
+    },
+    'number': {
+        'sg': 'एकवचनम्',
+        'du': 'द्विवचनम्',
+        'pl': 'बहुवचनम्'
+    }
+}
+
+###############################################################################
+
 
 class HeritageOutput:
     """
@@ -67,7 +93,7 @@ class HeritageOutput:
     }
 
     def __init__(self, html):
-        self.raw = html
+        self.html = html
         self.soup = BeautifulSoup(html, 'html.parser')
         self.process()
 
@@ -94,10 +120,56 @@ class HeritageOutput:
         self.inner_title = self.body.find('h1', class_='title')
 
         # Find Relevant Body Children
-        self.blocks = self.body.find_all(recursive=False)
+        self.blocks = self.body.find_all()
 
     def extract_analysis(self):
-        pass
+        if self.title.text != 'Sanskrit Reader Companion':
+            log.error("Invalid output page.")
+            return None
+
+        hr_blocks = self.html.split('<hr>')
+        if len(hr_blocks) < 2:
+            log.error("No solutions found.")
+            return None
+
+        solutions = []
+        for block in hr_blocks[2:]:
+            if 'Solution' not in block:
+                break
+
+            solution = {}
+
+            soup = BeautifulSoup(block, 'html.parser')
+            first_span = soup.find('span')
+
+            solution['id'] = int(first_span.text.split()[1])
+            solution['words'] = []
+
+            tables = soup.find_all('table')
+            for table in tables:
+                if table.find('table'):
+                    word = {}
+                    word['text'] = table.previous_sibling.get_text()
+                else:
+                    # Inner table contains analysis and it occurs after
+                    # the original word
+                    word.update(self.parse_analysis(table.get_text()))
+                    word['classes'] = table.get('class', [])
+                solution['words'].append(word)
+
+            solutions.append(solution)
+        return solutions
+
+    @staticmethod
+    def parse_analysis(text):
+        pattern = r'^\[([^\]]*)\]\{([^\}]*)\}$'
+        match = re.search(pattern, text.strip(), flags=re.DOTALL)
+        analysis = {}
+        if match:
+            print(text, match.groups())
+            analysis['root'] = match.group(1)
+            analysis['analyses'] = match.group(2).split('|')
+        return analysis
 
     def __repr__(self):
         return repr(self.soup)
@@ -159,8 +231,8 @@ class HeritagePlatform:
             The default is 'shell'.
         """
         self.base_url = self.INRIA_URL if base_url is None else base_url
-        self.heritage_dir = repo_dir
-        self.scripts_dir = os.path.join(self.heritage_dir, 'ML')
+        self.base_dir = repo_dir
+        self.scripts_dir = os.path.join(self.base_dir, 'ML')
         self.method = None
         self.font = None
 
@@ -170,7 +242,7 @@ class HeritagePlatform:
     ###########################################################################
     # Utilities (Actions)
 
-    def get_analysis(self, word=True):
+    def get_analysis(self, input_text, word=True):
         """
         Utility to obtain morphological analyses using Reader Companion
 
@@ -195,7 +267,8 @@ class HeritagePlatform:
             'topic': '',
             'corpmode': '',
             'corpdir': '',
-            'sentno': ''
+            'sentno': '',
+            'text': self.prepare_input(input_text)
         }
         result = self.get_result('reader', options)
         output = HeritageOutput(result)
@@ -466,13 +539,25 @@ class HeritagePlatform:
 
     ###########################################################################
 
+    def __repr__(self):
+        params = {
+            'repository': self.base_dir,
+            'url': self.base_url,
+            'method': self.method,
+            'font': self.font
+        }
+        repr_params = ', '.join([f'{k}="{v}"' for k, v in params.items()])
+        return f'{self.__class__.__name__}({repr_params})'
+
+    ###########################################################################
+
     def prepare_input(self, input_text):
         """
         Prepare Input
             * Convert Devanagari to Velthuis
             * Join words by '+' instead of by whitespaces
         """
-        return '+'.join(self.dn2vh(' '.join(input_text.split())))
+        return '+'.join(self.dn2vh(input_text).split())
 
     @staticmethod
     def identify_gender(gender):
@@ -556,16 +641,5 @@ class HeritagePlatform:
                     wasCons = False
 
         return output
-
-###############################################################################
-
-
-if __name__ == '__main__':
-    HOME_DIR = os.path.expanduser('~')
-    HERITAGE_DIR = os.path.join(
-        HOME_DIR, 'git', 'heritage', 'Heritage_Platform'
-    )
-
-    H = HeritagePlatform(HERITAGE_DIR)
 
 ###############################################################################
