@@ -126,13 +126,15 @@ async def help(event):
     """Send a message when the command /help is issued."""
 
     help_message = [
-        '/help - ',
-        '/setscheme - ',
-        '/dhatu - ',
-        '/verb - ',
-        '/shabd - ',
-        '/word - ',
-        '/split - '
+        'The following commands are supported.',
+        '/help - Print this help.',
+        '/setinputscheme - Choose input scheme (Default - Devanagari).',
+        '/setoutputscheme - Choose output scheme (Default - Devanagari).',
+        '/dhatu - Describe a verb form (Tingantam).',
+        '/dhaturupa - Display dhaturup (lakaar).',
+        '/shabda - Describe a word form (Subantam).',
+        '/shabdarupa - Display shabdarup.',
+        '/split - Display the sandhi samaas split.'
     ]
 
     await event.respond('\n'.join(help_message))
@@ -158,7 +160,7 @@ async def set_scheme(event):
             current_row = []
 
     response_message = [
-        'कृपया  एकां लेखनविधिं वृणोतु –'
+        'कृपया एकां लेखनविधिं वृणोतु –'
     ]
 
     # Asking user to choose a keyboard scheme
@@ -210,12 +212,50 @@ async def query_handler(event):
 
 @bot.on(events.NewMessage(pattern='^[^/]'))
 async def search(event):
-    text = f'query_{event.text}'
-    keyboard = [
-        [Button.inline("सुबन्तम्", data=text+' sup'),
-         Button.inline("तिङन्तम्", data=text+' tiG')]
-    ]
-    await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
+    event_text = event.text
+
+    print(f"Search: {event_text}")
+    keys = event_text.split()
+
+    if len(keys) == 2:
+        # Check if first word is dhaatu or shabda in Latin or Devanagari
+        dhatu_command = [ sanscript.transliterate('धातु', transliteration_config['default'], output_scheme)
+                    for output_scheme in transliteration_config['schemes'] ]
+        dhatu_command = dhatu_command + ['dhatu']
+
+        shabda_command = [ sanscript.transliterate('शब्द', transliteration_config['default'], output_scheme)
+                    for output_scheme in transliteration_config['schemes'] ]
+        shabda_command = shabda_command + ['shabd']
+        
+        dhaturup_command = [ sanscript.transliterate('धातुरूप', transliteration_config['default'], output_scheme)
+                    for output_scheme in transliteration_config['schemes'] ]
+        dhaturup_command = dhatu_command + ['dhaturup']
+        
+        shabdarup_command = [ sanscript.transliterate('शब्दरूप', transliteration_config['default'], output_scheme)
+                    for output_scheme in transliteration_config['schemes'] ]
+        shabdarup_command = shabdarup_command + ['shabdarup']
+        
+        if keys[0] in dhatu_command:
+            await search_verb(event)
+        elif keys[0] in shabda_command:
+            await search_word(event)
+        elif keys[0] in dhaturup_command:
+            await show_verb_forms(event)
+        elif keys[0] in shabdarup_command:
+            await show_word_forms(event)
+        else:
+            event.respond("Sorry, I don't understand this.")
+            await help(event)
+    elif len(keys) == 1:
+        text = f'query_{event_text}'
+        keyboard = [
+            [Button.inline("सुबन्तम्", data=text+' sup'),
+            Button.inline("तिङन्तम्", data=text+' tiG')]
+        ]
+        await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
+    elif len(keys) > 2:
+        event.respond("Sorry, I don't understand this.")
+        await help(event)
 
 
 async def redirect(event):
@@ -223,16 +263,16 @@ async def redirect(event):
     data = event.data.decode('utf-8')
     text, form = data.split('_')[1].split()
     if form == 'sup':
-        event.text = '/wordsearch ' + text
+        event.text = '/shabda ' + text
         await search_word(event)
     elif form == 'tiG':
-        event.text = '/verbsearch ' + text
+        event.text = '/dhatu ' + text
         await search_verb(event)
 
 ###############################################################################
 
 
-@bot.on(events.NewMessage(pattern='^/verbsearch'))
+@bot.on(events.NewMessage(pattern='^/dhatu'))
 async def search_verb(event):
     global transliteration_scheme
     global transliteration_config
@@ -246,7 +286,7 @@ async def search_verb(event):
     print(f"VERBSEARCH: {search_key}")
 
     if search_key=="":
-        await event.respond('USAGE: /verbsearch धातुम्/ धातुरूपम्')
+        await event.respond('USAGE: /dhatu धातुम्/ धातुरूपम्')
     else:
         matches = [
             format_verb_match(match)
@@ -258,7 +298,7 @@ async def search_verb(event):
             await event.respond('\n---\n'.join(matches))
 
 
-@bot.on(events.NewMessage(pattern='^/verbforms'))
+@bot.on(events.NewMessage(pattern='^/dhaturupa'))
 async def show_verb_forms(event):
     dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
     if dhaatu_idx:
@@ -271,7 +311,7 @@ async def show_verb_forms(event):
         await event.reply("कृपया धातुक्रमाङ्कः लिखतु।")
 
 
-@bot.on(events.NewMessage(pattern='^/wordsearch'))
+@bot.on(events.NewMessage(pattern='^/shabda'))
 async def search_word(event):
     global transliteration_scheme
     global transliteration_config
@@ -286,7 +326,7 @@ async def search_word(event):
     print(f"WORDSEARCH: {search_key}")
 
     if search_key=="":
-        await event.respond('USAGE: /wordsearch शब्दम्/ शब्दरूपम्')
+        await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
         matches = [
             format_word_match(match)
@@ -298,7 +338,7 @@ async def search_word(event):
             await event.reply('\n---\n'.join(matches))
 
 
-@bot.on(events.NewMessage(pattern='^/wordforms'))
+@bot.on(events.NewMessage(pattern='^/shabdarupa'))
 async def show_word_forms(event):
     shabda_idx = Shabda.validate_index(' '.join(event.text.split()[1:]))
     if shabda_idx:
@@ -319,7 +359,7 @@ async def sandhi_samaasa_split(event):
     search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],transliteration_config['internal'])
     print(f"SPLIT: {search_key}")
     if search_key=="":
-        await event.respond('USAGE: /split शब्द')
+        await event.respond('USAGE: /split पद')
     else:
         pass
 
@@ -330,6 +370,7 @@ async def sandhi_samaasa_split(event):
 def main():
     bot.start(bot_token=config.bot_token)
     bot.run_until_disconnected()
+
 
 ###############################################################################
 
