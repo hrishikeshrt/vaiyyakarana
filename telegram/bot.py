@@ -17,7 +17,14 @@ import config
 
 ###############################################################################
 
-Dhatu = dhatupatha.DhatuPatha('dhatu.json')
+Dhatu = dhatupatha.DhatuPatha(
+    'dhatu.json',
+    display_keys=[
+        'baseindex', 'dhatu', 'swara', 'gana', 'pada', 'artha', 'karma',
+        'artha_english'
+    ]
+)
+
 Shabda = shabdapatha.ShabdaPatha('shabda.json')
 
 if not config.hellwig_splitter_dir:
@@ -288,6 +295,7 @@ async def search(event):
         event.respond("Sorry, I don't understand this.")
         await help(event)
 
+
 async def redirect2(event):
     print('Redirect2')
     data = event.data.decode('utf-8')
@@ -298,6 +306,7 @@ async def redirect2(event):
     elif form == 'verbsearch':
         event.text = '/verbforms ' + text
         await show_verb_forms(event)
+
 
 async def redirect(event):
     print("Redirect")
@@ -326,7 +335,7 @@ async def search_verb(event):
     )
     print(f"VERBSEARCH: {search_key}")
 
-    if search_key=="":
+    if search_key == "":
         await event.respond('USAGE: /dhatu धातुम्/ धातुरूपम्')
     else:
         matches = [
@@ -336,9 +345,10 @@ async def search_verb(event):
         if not matches:
             await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
         else:
-                for match in matches:
-                    keyboard = [[Button.inline('रूपं दर्शयतु',data = f'verbsearch_{match[1]}')]]
-                await event.respond(match[0]+'\n---\n',buttons=keyboard)
+            for match in matches:
+                keyboard = [[Button.inline('रूपं दर्शयतु',
+                                           data=f'verbsearch_{match[1]}')]]
+            await event.respond(match[0], buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/dhaturupa'))
@@ -352,6 +362,40 @@ async def show_verb_forms(event):
     else:
         print(f"INVALID_VERBINDEX: {dhaatu_idx}")
         await event.reply("कृपया धातुक्रमाङ्कः लिखतु।")
+
+
+@bot.on(events.NewMessage(pattern='^/shabda_new'))
+async def search_word_new(event):
+    global transliteration_scheme
+    global transliteration_config
+
+    search_key = ' '.join(event.text.split()[1:])
+    sender_id = event.sender.id
+    search_key = sanscript.transliterate(
+        search_key,
+        transliteration_scheme[sender_id]['input'],
+        transliteration_config['default']
+    )
+    print(f"WORDSEARCH: {search_key}")
+
+    if search_key == "":
+        await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+    else:
+        matches = Heritage.get_analysis(search_key)
+        matches = [
+            format_word_match(match)
+            for match in Shabda.search(search_key)
+        ]
+        if not matches:
+            await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+        else:
+            for match in matches:
+                keyboard = [[
+                    Button.inline(
+                        'रूपं दर्शयतु', data=f'wordsearch_{match[1]}'
+                    )
+                ]]
+                await event.respond(match[0], buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/shabda'))
@@ -371,6 +415,7 @@ async def search_word(event):
     if search_key == "":
         await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
+        print(Shabda.search(search_key))
         matches = [
             format_word_match(match)
             for match in Shabda.search(search_key)
@@ -384,7 +429,7 @@ async def search_word(event):
                         'रूपं दर्शयतु', data=f'wordsearch_{match[1]}'
                     )
                 ]]
-                await event.respond(match[0]+'\n---\n', buttons=keyboard)
+                await event.respond(match[0], buttons=keyboard)
 
 
 @bot.on(events.NewMessage(pattern='^/shabdarupa'))

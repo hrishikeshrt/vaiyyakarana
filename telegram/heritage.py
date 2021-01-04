@@ -155,7 +155,7 @@ class HeritageOutput:
                     # the original word
                     word.update(self.parse_analysis(table.get_text()))
                     word['classes'] = table.get('class', [])
-                solution['words'].append(word)
+                    solution['words'].append(word)
 
             solutions.append(solution)
         return solutions
@@ -183,7 +183,10 @@ class HeritageOutput:
         if match:
             print(text, match.groups())
             analysis['root'] = match.group(1)
-            analysis['analyses'] = match.group(2).split('|')
+            analysis['analyses'] = [
+                [abbrev.replace('.', '') for abbrev in analysis.split()]
+                for analysis in match.group(2).split('|')
+            ]
         return analysis
 
     def __repr__(self):
