@@ -104,6 +104,43 @@ def format_verb_forms(dhatu, rupaani):
 @bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
+
+    start_message = [
+        '<h1>स्वागतम्।</h1>',
+       'अहम् धातुपाठः शब्दपाठः च जानामि।',
+    ]
+
+    await event.respond('\n'.join(start_message), parse_mode='html')
+
+    # call help handler
+    await help(event)
+
+    # call to scheme setting
+    await set_scheme(event)
+
+    raise events.StopPropagation
+
+
+@bot.on(events.NewMessage(pattern='^/help'))
+async def help(event):
+    """Send a message when the command /help is issued."""
+
+    help_message = [
+        '/help - ',
+        '/setscheme - ',
+        '/dhatu - ',
+        '/verb - ',
+        '/shabd - ',
+        '/word - ',
+        '/split - '
+    ]
+
+    await event.respond('\n'.join(help_message))
+
+
+@bot.on(events.NewMessage(pattern='^/setscheme'))
+async def set_scheme(event):
+    '''Set transliteration scheme for user'''
     global transliteration_config
     global transliteration_scheme
 
@@ -111,44 +148,57 @@ async def start(event):
     current_row = []
     row_length = 2
 
+    # Populating keyboard
     for scheme, scheme_name in transliteration_config['schemes'].items():
         current_row.append(
-            Button.inline(scheme_name, data=f'input_{scheme}')
+            Button.inline(scheme_name, data=f'scheme_{scheme}')
         )
         if len(current_row) == row_length:
             keyboard.append(current_row)
             current_row = []
 
+    response_message = [
+        'कृपया  एकां लेखनविधिं वृणोतु –'
+    ]
+
+    # Asking user to choose a keyboard scheme
+    await event.respond('\n'.join(response_message), buttons=keyboard, parse_mode='html')
+    print("Scheme asked")
+    while event.data.decode('utf-8')=="":
+        pass
+
+
+###############################################################################
+
+
+@bot.on(events.CallbackQuery(pattern='^scheme_'))
+async def scheme_handler(event):
+    global transliteration_scheme
+    global transliteration_config
     sender_id = event.sender.id
+
     if sender_id not in transliteration_scheme:
         transliteration_scheme[sender_id] = {
             'input': transliteration_config['default'],
             'output': transliteration_config['default']
         }
 
-    start_message = [
-        '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठः शब्दपाठः च जानामि। कृपया पृच्छतु।',
-        'कृपया  एकां लेखनविधिं वृणोतु –'
-    ]
-    await event.respond(
-        '\n'.join(start_message), buttons=keyboard, parse_mode='html'
-    )
-    raise events.StopPropagation
-
-###############################################################################
-
-
-@bot.on(events.CallbackQuery(pattern='^input_devanagari|hk|velthius|itrans'))
-async def set_scheme(event):
-    '''Set transliteration scheme for user'''
-    global transliteration_scheme
-    sender_id = event.sender.id
     data = event.data.decode('utf-8')
-    indx, scheme = data.split('_')
+    _, scheme = data.split('_')
 
-    transliteration_scheme[sender_id][indx] = scheme
-    await event.respond(f'वृणीता - {scheme}\nअन्वेषणीयपदं लिखतु –')
+    transliteration_scheme[sender_id]['input'] = scheme
+
+    # Editing last message, removing keyboard
+    last_message = await event.get_message()
+    await event.edit(last_message.raw_text, buttons=Button.clear(), parse_mode='html')
+
+    response_message = [
+        'धन्यवादः।',
+        ' '.join(['वृणीता - ', transliteration_config['schemes'][scheme]]),
+        'कृपया पृच्छतु।'
+    ]
+
+    await event.respond('\n'.join(response_message))
 
 
 @bot.on(events.CallbackQuery(pattern='^query_'))
@@ -194,14 +244,18 @@ async def search_verb(event):
         transliteration_config['default']
     )
     print(f"VERBSEARCH: {search_key}")
-    matches = [
-        format_verb_match(match)
-        for match in Dhatu.search(search_key)
-    ]
-    if not matches:
-        await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
+
+    if search_key=="":
+        await event.respond('USAGE: /verbsearch धातुम्/ धातुरूपम्')
     else:
-        await event.respond('\n---\n'.join(matches))
+        matches = [
+            format_verb_match(match)
+            for match in Dhatu.search(search_key)
+        ]
+        if not matches:
+            await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
+        else:
+            await event.respond('\n---\n'.join(matches))
 
 
 @bot.on(events.NewMessage(pattern='^/verbforms'))
@@ -230,14 +284,18 @@ async def search_word(event):
         transliteration_config['default']
     )
     print(f"WORDSEARCH: {search_key}")
-    matches = [
-        format_word_match(match)
-        for match in Shabda.search(search_key)
-    ]
-    if not matches:
-        await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+
+    if search_key=="":
+        await event.respond('USAGE: /wordsearch शब्दम्/ शब्दरूपम्')
     else:
-        await event.reply('\n---\n'.join(matches))
+        matches = [
+            format_word_match(match)
+            for match in Shabda.search(search_key)
+        ]
+        if not matches:
+            await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+        else:
+            await event.reply('\n---\n'.join(matches))
 
 
 @bot.on(events.NewMessage(pattern='^/wordforms'))
@@ -252,31 +310,19 @@ async def show_word_forms(event):
         print(f"INVALID_WORDINDEX: {shabda_idx}")
         await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
 
-@bot.on(events.NewMessage(pattern='^/sandhisplit'))
-async def sandhi_split(event):
+@bot.on(events.NewMessage(pattern='^/split'))
+async def sandhi_samaasa_split(event):
     """Output the sandhi split of the input word."""
     global transliteration_scheme
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
-    print(f"SANDHISPLIT: {search_key}")
+    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],transliteration_config['internal'])
+    print(f"SPLIT: {search_key}")
     if search_key=="":
-        await event.respond('USAGE: /sandhisplit शब्द')
+        await event.respond('USAGE: /split शब्द')
     else:
         pass
 
-@bot.on(events.NewMessage(pattern='^/samaassplit'))
-async def sandhi_split(event):
-    """Output the samaas split of the input word."""
-    global transliteration_scheme
-    search_key = ' '.join(event.text.split()[1:])
-    sender_id = event.sender.id
-    search_key = sanscript.transliterate(search_key,transliteration_scheme[sender_id]['input'],sanscript.DEVANAGARI)
-    print(f"SAMAASSPLIT: {search_key}")
-    if search_key=="":
-        await event.respond('USAGE: /samaassplit शब्द')
-    else:
-        pass
 
 ###############################################################################
 
