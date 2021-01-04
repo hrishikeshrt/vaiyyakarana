@@ -68,6 +68,7 @@ transliteration_scheme = {}
 
 ###############################################################################
 
+# Output formats for dhatu dhaturupa shabda and shabdarupa
 
 def format_word_match(shabda):
     output = []
@@ -167,7 +168,7 @@ async def help(event):
         '/dhaturupa - Display dhaturup (lakaar).',
         '/shabda - Describe a word form (Subantam).',
         '/shabdarupa - Display shabdarup.',
-        '/split - Display the sandhi samaas split.'
+        '/vigraha - Display the sandhi samaas split.'
     ]
 
     await event.respond('\n'.join(help_message))
@@ -206,9 +207,11 @@ async def set_scheme(event):
 
 ###############################################################################
 
+# Inline button handlers
 
 @bot.on(events.CallbackQuery(pattern='^scheme_'))
 async def scheme_handler(event):
+    """ Invoked from set_scheme() """
     global transliteration_scheme
     global transliteration_config
     sender_id = event.sender.id
@@ -241,7 +244,12 @@ async def scheme_handler(event):
 
 @bot.on(events.CallbackQuery(pattern='^query_'))
 async def query_handler(event):
-    await redirect(event)
+    """ Invoked from search() when single words given as input """
+    print("qh " + event.data.decode('utf-8'))
+    if 'help' in event.data.decode('utf-8'):
+        await help(event)
+    else:
+        await redirect(event)
 
 
 @bot.on(events.CallbackQuery(pattern='^[wordsearch_]|[verbsearch_]'))
@@ -301,6 +309,15 @@ async def search(event):
         ]
         shabdarup_command = shabdarup_command + ['shabdarup']
 
+        vigraha_command = [
+            sanscript.transliterate(
+                'विग्रह',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
+
         if keys[0] in dhatu_command:
             await search_verb(event)
         elif keys[0] in shabda_command:
@@ -309,19 +326,35 @@ async def search(event):
             await show_verb_forms(event)
         elif keys[0] in shabdarup_command:
             await show_word_forms(event)
+        elif keys[0] in vigraha_command:
+            await sandhi_samaasa_split(event)
         else:
-            event.respond("Sorry, I don't understand this.")
+            event.respond("क्षम्यताम्।")
             await help(event)
     elif len(keys) == 1:
         text = f'query_{event_text}'
         keyboard = [
-            [Button.inline("सुबन्तम्", data=text+' sup'),
-             Button.inline("तिङन्तम्", data=text+' tiG')]
+            [   Button.inline("सुबन्तम्", data=f'{text} sup'),
+                Button.inline("तिङन्तम्", data=f'{text} tiG')    ],
+            [   Button.inline("साहाय्यम्", data=f'{text} help')     ]
         ]
-        await event.respond('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
+        print(keyboard)
+        await event.reply('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
     elif len(keys) > 2:
-        event.respond("Sorry, I don't understand this.")
-        await help(event)
+        vigraha_command = [
+            sanscript.transliterate(
+                'विग्रह',
+                transliteration_config['default'],
+                output_scheme
+            )
+            for output_scheme in transliteration_config['schemes']
+        ]
+
+        if keys[0] in vigraha_command:
+            await sandhi_samaasa_split(event)
+        else:
+            await event.respond("क्षम्यताम्।")
+            await help(event)
 
 
 async def redirect2(event):
@@ -510,7 +543,7 @@ async def show_word_forms_new(event):
         await event.reply("USAGE: /shabdarupa root gender")
 
 
-@bot.on(events.NewMessage(pattern='^/split'))
+@bot.on(events.NewMessage(pattern='^/vigraha'))
 async def sandhi_samaasa_split(event):
     """Output the sandhi split of the input word."""
     global transliteration_scheme
