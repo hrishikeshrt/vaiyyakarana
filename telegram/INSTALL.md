@@ -16,6 +16,7 @@ and can be installed using `pip install`
 * indic_transliteration-2.1.0
 * requests-2.25.1
 * beautifulsoup4-4.9.3
+* tabulate-0.8.7
 
 ### Tools
 
