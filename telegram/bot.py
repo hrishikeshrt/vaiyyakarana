@@ -76,7 +76,9 @@ gender_map = {
     'f' : 'स्त्रीलिङ्गम्',
     'स्त्रीलिङ्गम्' : 'f',
     'n' : 'नपुंसकलिङ्गम्',
-    'नपुंसकलिङ्गम्' : 'n'
+    'नपुंसकलिङ्गम्' : 'n',
+    'त्रिलिङ्गम्' : 'A',
+    'A' : 'त्रिलिङ्गम्'
 }
 
 ###############################################################################
@@ -152,12 +154,11 @@ def format_verb_forms(dhatu, rupaani):
     output = [
         (f"{dhatu['dhatu']} ({dhatu['swara']}), "
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
-        '+' + '-' * 60 + '+',
         (f"{dhatupatha.VALUES_LANG['gana'][dhatu['gana']]}, "
          f"{dhatupatha.VALUES_LANG['pada'][dhatu['pada']]}, "
-         '+' + '-' * 60 + '+'
-         f"{dhatu['tags']}"),
-    ]
+        ),
+        '+' + '-' * 60 + '+',
+            ]
     for lakara, forms in rupaani.items():
         if forms:
             output.append('')
@@ -199,11 +200,11 @@ async def help(event):
         '/help - Print this help.',
         # '/setinputscheme - Choose input scheme (Default - Devanagari).',
         # '/setoutputscheme - Choose output scheme (Default - Devanagari).',
-        '/setscheme - Choose input scheme (Default - Devanagari).'
-        '/dhatu - Describe a verb form (Tingantam).',
-        '/dhaturupa - Display dhaturup (lakaar).',
-        '/shabda - Describe a word form (Subantam).',
-        '/shabdarupa - Display shabdarup.',
+        '/setscheme - Choose input scheme (Default - Devanagari).',
+        '/dhatu - Describe a verb form.',
+        # '/dhaturupa - Display dhaturup (lakaar).',
+        '/shabda - Describe a word form.',
+        # '/shabdarupa - Display shabdarup.',
         '/vigraha - Display the sandhi samaas split.'
     ]
 
@@ -367,7 +368,7 @@ async def search(event):
         elif keys[0] in vigraha_command:
             await sandhi_samaasa_split(event)
         else:
-            event.respond("क्षम्यताम्।")
+            await event.respond("क्षम्यताम्।")
             await help(event)
     elif len(keys) == 1:
         text = f'query_{event_text}'
@@ -425,10 +426,11 @@ async def redirect(event):
 @bot.on(events.NewMessage(pattern='^/dr_'))
 async def show_verb_forms_new_wrapper(event):
     words = event.text.split("_")
-    # Change back dhaatu and gaNa from ITRANS to devanagari
-    words[1] = sanscript.transliterate(words[1], sanscript.HK, transliteration_config['default'])
-    words[2] = sanscript.transliterate(words[2], sanscript.HK, transliteration_config['default'])
-    event.text = ' '.join(['/dhaturupa', words[1], words[2]])
+    kramanka = '.'.join(words[-2:])
+    # # Change back dhaatu and gaNa from ITRANS to devanagari
+    # words[1] = sanscript.transliterate(words[1], sanscript.HK, transliteration_config['default'])
+    # words[2] = sanscript.transliterate(words[2], sanscript.HK, transliteration_config['default'])
+    event.text = ' '.join(['/dhaturupa', kramanka])
     await show_verb_forms(event)
     raise events.StopPropagation
 
@@ -465,16 +467,17 @@ async def search_verb(event):
     if search_key == "" or len(search_key.split()) > 1:
         await event.reply('USAGE: /dhatu धातुम्/ धातुरूपम्')
     else:
+        print("in else", search_key, transliteration_scheme[sender_id]['input'], transliteration_config['default'])
         search_key = sanscript.transliterate(
             search_key,
             transliteration_scheme[sender_id]['input'],
             transliteration_config['default']
         )
-        
         matches = [
             format_verb_match(match)
             for match in Dhatu.search(search_key)
         ]
+        print(matches)
         if not matches:
             await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
         else:
@@ -484,28 +487,32 @@ async def search_verb(event):
                 #                            data=f'verbsearch_{match[1]}')]]
                 # await event.respond(match[0])   #, buttons=keyboard)
                 match_message = match[0].split("\n")
+                kramanka = match[1].replace(".", "_")
 
-                # extract dhatu and gaNa
-                dhatu = match_message[0].split()[2].split()[-1]
-                gana = match_message[1].split()[2].split()[-1]
+                # # extract dhatu and gaNa
+                # dhatu = match_message[0].split()[2].split()[-1]
+                # gana = match_message[1].split()[2].split()[-1]
 
-                # convert to ITRANS
-                dhatu = sanscript.transliterate(dhatu, transliteration_config['default'], sanscript.HK)
-                gana = sanscript.transliterate(gana, transliteration_config['default'], sanscript.HK)
+                # # convert to ITRANS
+                # dhatu = sanscript.transliterate(dhatu, transliteration_config['default'], sanscript.HK)
+                # gana = sanscript.transliterate(gana, transliteration_config['default'], sanscript.HK)
                 
-                match_message.append(f'रूपं दर्शनम् - /dr_{dhatu}_{gana}')
+                match_message.append(f'रूपं दर्शनम् - /dr_{kramanka}')
                 display_message.append('\n'.join(match_message))
+            
             max_char_len = 4096
             curr_msg = []
             curr_length = 0
             for msg in display_message:
                 msg_len = len(msg)
                 if curr_length + msg_len > max_char_len:
+                    print("here3")
                     await event.respond('\n\n'.join(curr_msg))
                     curr_msg = []
                     curr_length = 0
                 curr_msg.append(msg)
                 curr_length = curr_length + msg_len
+            await event.respond('\n\n'.join(curr_msg))                
 
 
 @bot.on(events.NewMessage(pattern='^/sr_'))
@@ -533,9 +540,10 @@ async def show_word_forms_new(event):
         await event.respond(format_word_forms_new(rupaani))
     else:
         await event.reply("USAGE: /shabdarupa root gender")
+    raise events.StopPropagation
 
 
-bot.on(events.NewMessage(pattern='^/shabda'))
+@bot.on(events.NewMessage(pattern='^/shabda'))
 async def search_word_new(event):
     global transliteration_scheme
     global transliteration_config
