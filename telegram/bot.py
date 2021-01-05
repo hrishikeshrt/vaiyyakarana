@@ -110,14 +110,22 @@ def format_verb_match(dhaatu):
             continue
         if k in dhatupatha.VALUES_LANG:
             output_val = dhatupatha.VALUES_LANG[k][v]
-        output.append(f'**{output_key}**: {output_val}')
+        output.append(f'**{output_key}** - {output_val}')
         
     if dhaatu['desc']:
         output.append(dhaatu['desc'])
 
-    output.append('----------')
+    max_len = max([len(output[i]) for i in range(len(output)-1) if i%2==0])
+    output2 = []
+    i=0
+    while i<len(output):
+        space_counter = max_len + 15 -len(output[i])
+        output2.append((' '*space_counter).join(output[i:i+2]))
+        i = i + 2
+
+    output2.append('----------')
         
-    return '\n'.join(output), kramanka
+    return '\n'.join(output2), kramanka
 
 
 def format_word_forms(shabda, rupaani):
@@ -413,12 +421,24 @@ async def redirect(event):
 ###############################################################################
 
 
+@bot.on(events.NewMessage(pattern='^/dr_'))
+async def show_verb_forms_new_wrapper(event):
+    words = event.text.split("_")
+    # Change back dhaatu and gaNa from ITRANS to devanagari
+    words[1] = sanscript.transliterate(words[1], sanscript.HK, transliteration_config['default'])
+    words[2] = sanscript.transliterate(words[2], sanscript.HK, transliteration_config['default'])
+    event.text = ' '.join(['/dhaturupa', words[1], words[2]])
+    await show_verb_forms(event)
+    raise events.StopPropagation
+
+
 @bot.on(events.NewMessage(pattern='^/dhaturupa'))
 async def show_verb_forms(event):
     search_key = ' '.join(event.text.split()[1:])
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
+        # await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
+        pass
     else:
         dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
         if dhaatu_idx:
@@ -461,16 +481,27 @@ async def search_verb(event):
             for match in matches:
                 # keyboard = [[Button.inline('रूपं दर्शयतु',
                 #                            data=f'verbsearch_{match[1]}')]]
-                await event.respond(match[0], buttons=keyboard)
+                # await event.respond(match[0])   #, buttons=keyboard)
                 match_message = match[0].split("\n")
-                match_message.append(f'रूपं दर्शनम् - /dr_')
+
+                # extract dhatu and gaNa
+                dhatu = match_message[0].split()[2].split()[-1]
+                gana = match_message[1].split()[2].split()[-1]
+
+                # convert to ITRANS
+                dhatu = sanscript.transliterate(dhatu, transliteration_config['default'], sanscript.HK)
+                gana = sanscript.transliterate(gana, transliteration_config['default'], sanscript.HK)
+                
+                match_message.append(f'रूपं दर्शनम् - /dr_{dhatu}_{gana}')
+                display_message.append('\n'.join(match_message))
+            await event.respond('\n\n'.join(display_message))
 
 
 @bot.on(events.NewMessage(pattern='^/sr_'))
 async def show_word_forms_new_wrapper(event):
     words = event.text.split("_")
     # Change back root from ITRANS to devanagari
-    words[1] = sanscript.transliterate(words[1], sanscript.ITRANS, transliteration_config['default'])
+    words[1] = sanscript.transliterate(words[1], sanscript.HK, transliteration_config['default'])
     # Fetch gender
     words[2] = gender_map[words[2]]
     event.text = ' '.join(['/shabdarupa', words[1], words[2]])
@@ -562,7 +593,7 @@ async def search_word_new(event):
             for match in grouped_matches:
                 print(match)
                 root = match['root']
-                root_en = sanscript.transliterate(root, transliteration_config['default'], sanscript.ITRANS)
+                root_en = sanscript.transliterate(root, transliteration_config['default'], sanscript.HK)
                 for gender in match['genders']:
                     # keyboard = [
                     #     [
