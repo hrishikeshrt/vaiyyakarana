@@ -32,7 +32,7 @@ Shabda = shabdapatha.ShabdaPatha('shabda.json')
 if not config.hellwig_splitter_dir:
     class NonSplitter:
         def split(self, sentence):
-            return "अहम् विग्रहः कर्तुम् न शक्नोमि।"
+            return "दत्तपदस्य विग्रहं कर्तुं न शक्यते"
     Vigraha = NonSplitter()
 else:
     import splitter
@@ -55,7 +55,7 @@ bot = TelegramClient(
 
 transliteration_config = {
     'schemes': {
-        sanscript.DEVANAGARI: 'Devanagari',
+        sanscript.DEVANAGARI: 'देवनागरी',
         sanscript.HK: 'Harvard-Kyoto',
         sanscript.VELTHUIS: 'Velthuis',
         sanscript.ITRANS: 'ITRANS'
@@ -177,7 +177,7 @@ async def start(event):
 
     start_message = [
         '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठः शब्दपाठः च जानामि।',
+        'अहम् धातुपाठं शब्दपाठं पदविग्रहं च जानामि।',
     ]
 
     await event.respond('\n'.join(start_message), parse_mode='html')
@@ -196,16 +196,16 @@ async def help(event):
     """Send a message when the command /help is issued."""
 
     help_message = [
-        'The following commands are supported.',
-        '/help - Print this help.',
+        'उपलब्ध-आदेशाः –',
+        '/help - साहाय्यक-पटलं दर्शयतु',
         # '/setinputscheme - Choose input scheme (Default - Devanagari).',
         # '/setoutputscheme - Choose output scheme (Default - Devanagari).',
-        '/setscheme - Choose input scheme (Default - Devanagari).',
-        '/dhatu - Describe a verb form.',
+        '/setscheme - लेखनविधानं वृणोतु (यदभावे देवनागरी).',
+        '/dhatu - एकं धातुं अन्वेषयतु',
         # '/dhaturupa - Display dhaturup (lakaar).',
-        '/shabda - Describe a word form.',
+        '/shabda - एकं शब्दं अन्वेषयतु',
         # '/shabdarupa - Display shabdarup.',
-        '/vigraha - Display the sandhi samaas split.'
+        '/vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ)'
     ]
 
     await event.respond('\n'.join(help_message))
@@ -373,8 +373,8 @@ async def search(event):
     elif len(keys) == 1:
         text = f'query_{event_text}'
         keyboard = [
-            [   Button.inline("सुबन्तम्", data=f'{text} sup'),
-                Button.inline("तिङन्तम्", data=f'{text} tiG')    ],
+            [   Button.inline("सुबन्तः", data=f'{text} sup'),
+                Button.inline("तिङन्तः", data=f'{text} tiG')    ],
             [   Button.inline("साहाय्यम्", data=f'{text} help')     ]
         ]
         print(keyboard)
@@ -451,7 +451,7 @@ async def show_verb_forms(event):
             await event.respond(format_verb_forms(dhaatu, rupaani))
         else:
             print(f"INVALID_VERBINDEX: {dhaatu_idx}")
-            await event.reply("धातुक्रमाङ्कः सम्यक् नास्ति।")
+            await event.reply("असम्यक् धातुक्रमाङ्कः!")
     
     raise events.StopPropagation
 
@@ -497,7 +497,7 @@ async def search_verb(event):
                 # dhatu = sanscript.transliterate(dhatu, transliteration_config['default'], sanscript.HK)
                 # gana = sanscript.transliterate(gana, transliteration_config['default'], sanscript.HK)
                 
-                match_message.append(f'रूपं दर्शनम् - /dr_{kramanka}')
+                match_message.append(f'रूपं दर्शयतु- /dr_{kramanka}')
                 display_message.append('\n'.join(match_message))
             
             max_char_len = 4096
@@ -554,7 +554,7 @@ async def search_word_new(event):
     print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
     else:
         # wait_message = [
         #     'Please wait.'
@@ -625,7 +625,7 @@ async def search_word_new(event):
                     match_message = format_word_match(match, gender)
                     gender_en = gender_map[gender]
                     print(root_en, gender_en)
-                    match_message.append(f'रूपं दर्शनम् - /sr_{root_en}_{gender_en}')
+                    match_message.append(f'रूपं दर्शयतु - /sr_{root_en}_{gender_en}')
 
                     display_message.append('\n'.join(match_message))
                     print('\n\n'.join(display_message))
@@ -645,7 +645,7 @@ async def search_word(event):
     print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
     else:
         search_key = sanscript.transliterate(
             search_key,
@@ -679,7 +679,7 @@ async def show_word_forms(event):
         await event.respond(format_word_forms(shabda, rupaani))
     else:
         print(f"INVALID_WORDINDEX: {shabda_idx}")
-        await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
+        await event.reply("कृपया शब्दक्रमाङ्कं लिखतु।")
 
 
 @bot.on(events.NewMessage(pattern='^/vigraha'))
@@ -696,7 +696,7 @@ async def sandhi_samaasa_split(event):
     split_line = Vigraha.split(input_line)
     print(f"SPLIT: '{input_line}' --> '{split_line}'")
     if input_line == "":
-        await event.reply('USAGE: /split पद')
+        await event.reply('USAGE: /split पदः')
     else:
         await event.reply(split_line)
 
