@@ -251,7 +251,7 @@ async def set_scheme(event):
     await event.respond(
         '\n'.join(response_message), buttons=keyboard, parse_mode='html'
     )
-    print("Scheme asked")
+    # print("Scheme asked")
     while event.data.decode('utf-8') == "":
         pass
 
@@ -317,7 +317,7 @@ async def query_handler2(event):
 async def search(event):
     event_text = event.text
 
-    print(f"Search: {event_text}")
+    # print(f"Search: {event_text}")
     keys = event_text.split()
 
     if len(keys) == 2:
