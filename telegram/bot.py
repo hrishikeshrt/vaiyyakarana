@@ -190,7 +190,8 @@ def format_verb_forms(dhatu, rupaani, full_flag):
             ) + "```")
 
     # output.append('+' + '-' * 60 + '+',)
-    return ['\n'.join(_output) for _output in [output, p_output, a_output]]
+    return ['\n'.join(_output)
+            for _output in [output, p_output, a_output] if _output]
 
 ###############################################################################
 
@@ -477,7 +478,7 @@ async def show_verb_forms_wrapper(event):
     full_keyword = 'full' if 'full' in words else ''
     kramanka = '.'.join(words[1:3])
     event.text = ' '.join(['/dhaturupa', kramanka, full_keyword])
-    print(f'dr {event.text}')
+    # print(f'dr {event.text}')
     await show_verb_forms(event)
     raise events.StopPropagation
 
@@ -502,9 +503,7 @@ async def show_verb_forms(event):
                 # Provide option to check all lakaras
                 command_key = search_key.replace(".", "_")
                 full_command = f'\nसर्वे लकाराः - /dr_{command_key}_full'
-                dhaturupa_output = '\n'.join([
-                    dhaturupa_output, full_command
-                ])
+                dhaturupa_output.append(full_command)
             for output in dhaturupa_output:
                 await event.respond(output)
         else:
