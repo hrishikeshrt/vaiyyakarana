@@ -160,7 +160,7 @@ def format_word_forms_new(rupaani):
     return f"```{formatted_table}```"
 
 
-def format_verb_forms(dhatu, rupaani):
+def format_verb_forms(dhatu, rupaani, full_flag):
     output = [
         (f"{dhatu['dhatu']} ({dhatu['swara']}), "
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
@@ -168,7 +168,12 @@ def format_verb_forms(dhatu, rupaani):
          f"{dhatupatha.VALUES_LANG['pada'][dhatu['pada']]}, "),
         '+' + '-' * 60 + '+',
             ]
+
+    lakaars = ['plat', 'plang', 'plrut', 'plot', 'alat', 'alang', 'alrut', 'alot']
+
     for lakara, forms in rupaani.items():
+        if not full_flag and lakara not in lakaars:    
+            continue
         if forms:
             output.append('')
             output.append(dhatupatha.LAKARA_LANG[lakara])
@@ -435,11 +440,13 @@ async def redirect(event):
 @bot.on(events.NewMessage(pattern='^/dr_'))
 async def show_verb_forms_new_wrapper(event):
     words = event.text.split("_")
-    kramanka = '.'.join(words[-2:])
+    full_keyword = 'full' if 'full' in words else ''
+    kramanka = '.'.join(words[1:3])
     # # Change back dhaatu and gaNa from ITRANS to devanagari
     # words[1] = sanscript.transliterate(words[1], sanscript.HK, transliteration_config['default'])
     # words[2] = sanscript.transliterate(words[2], sanscript.HK, transliteration_config['default'])
-    event.text = ' '.join(['/dhaturupa', kramanka])
+    event.text = ' '.join(['/dhaturupa', kramanka, full_keyword])
+    print(f'dr {event.text}')
     await show_verb_forms(event)
     raise events.StopPropagation
 
@@ -447,17 +454,26 @@ async def show_verb_forms_new_wrapper(event):
 @bot.on(events.NewMessage(pattern='^/dhaturupa'))
 async def show_verb_forms(event):
     search_key = ' '.join(event.text.split()[1:])
-
+    full_flag = False
+    if 'full' in search_key.split():
+        full_flag = True
+        search_key = ' '.join(search_key.split()[:-1])
+    print(f'svf {full_flag}')
     if search_key == "" or len(search_key.split()) > 1:
         #await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
         pass
     else:
-        dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
+        dhaatu_idx = Dhatu.validate_index(search_key)
         if dhaatu_idx:
             print(f"VERBINDEX: {dhaatu_idx}")
             dhaatu = Dhatu.get(dhaatu_idx)
             rupaani = Dhatu.get_forms(dhaatu_idx)
-            await event.respond(format_verb_forms(dhaatu, rupaani))
+            dhaturupa_output = format_verb_forms(dhaatu, rupaani, full_flag)
+            if not full_flag:
+                """ Provide option to check all lakaras """
+                full_dr_command = f'\nFor dhaturupa in all lakaras - /dr_{search_key.replace(".","_")}_full'
+                dhaturupa_output = '\n'.join([dhaturupa_output, full_dr_command])
+            await event.respond(dhaturupa_output)
         else:
             print(f"INVALID_VERBINDEX: {dhaatu_idx}")
             await event.reply("धातुक्रमाङ्कः सम्यक् नास्ति।")
