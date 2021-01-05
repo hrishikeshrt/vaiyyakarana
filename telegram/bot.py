@@ -6,6 +6,9 @@ Created on Fri Nov 27 19:04:19 2020
 @author: Hrishikesh Terdalkar
 """
 
+import os
+import datetime
+
 from telethon import TelegramClient, events, sync, Button
 from indic_transliteration import sanscript
 
@@ -42,6 +45,9 @@ if config.heritage_platform_dir:
     Heritage = heritage.HeritagePlatform(config.heritage_platform_dir)
 else:
     Heritage = heritage.HeritagePlatform('', method='web')
+
+if not os.path.isdir(config.suggestion_dir):
+    os.makedirs(config.suggestion_dir)
 
 ###############################################################################
 
@@ -670,6 +676,19 @@ async def sandhi_samaasa_split(event):
         await event.reply('USAGE: /split पद')
     else:
         await event.reply(split_line)
+
+###############################################################################
+
+
+@bot.on(events.NewMessage(pattern='^/(suggest|feedback)'))
+async def givesuggestions(event):
+    """Give suggestions"""
+    message = event.text
+    sender = await event.get_sender()
+    user_file = os.path.join(config.suggestion_dir, f"{sender.username}.txt")
+    with open(user_file, 'a') as f:
+        f.write("\n".join(f"--- {datetime.datetime.now()} ---", message))
+    await event.reply("धन्यवादाः।")
 
 ###############################################################################
 # Deprecated Functionality

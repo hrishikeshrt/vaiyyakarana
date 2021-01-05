@@ -1,3 +1,5 @@
+suggestions/
+
 *.log
 db/**
 data/**

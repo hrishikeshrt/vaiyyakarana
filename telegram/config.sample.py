@@ -13,6 +13,7 @@ import os
 home_dir = os.path.expanduser('~')
 hellwig_splitter_dir = ''
 heritage_platform_dir = ''
+suggestion_dir = 'suggestions'
 
 ###############################################################################
 
