@@ -197,8 +197,9 @@ async def help(event):
     help_message = [
         'The following commands are supported.',
         '/help - Print this help.',
-        '/setinputscheme - Choose input scheme (Default - Devanagari).',
-        '/setoutputscheme - Choose output scheme (Default - Devanagari).',
+        # '/setinputscheme - Choose input scheme (Default - Devanagari).',
+        # '/setoutputscheme - Choose output scheme (Default - Devanagari).',
+        '/setscheme - Choose input scheme (Default - Devanagari).'
         '/dhatu - Describe a verb form (Tingantam).',
         '/dhaturupa - Display dhaturup (lakaar).',
         '/shabda - Describe a word form (Subantam).',
