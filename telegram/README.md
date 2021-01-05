@@ -5,9 +5,13 @@ A telegram bot which offers various tools for a Sanskrit learner including stem 
 
 
 The bot is powered by,
+
 * Telethon  https://docs.telethon.dev/en/latest/
+
 * https://ashtadhyayi.com for conjugations (Dhaatu Paatha)
+
 * Heritage Platform by Gérard Huet for declensions
+
 * Sandhi and Compound Splitter by Oliver Hellwig
 
 ## Installation
