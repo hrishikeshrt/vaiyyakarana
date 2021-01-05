@@ -213,11 +213,11 @@ async def help(event):
 
     help_message = [
         'The following commands are supported.',
-        '/help - Print this help.',
-        '/setscheme - Choose input scheme (Default - Devanagari).',
-        '/dhatu - Describe a verb form.',
-        '/shabda - Describe a word form.',
-        '/vigraha - Display the sandhi samaas split.'
+        'साहाय्य or /help - Print this help.',
+        'लेखनविधि or /setscheme - Choose input scheme (Default - Devanagari).',
+        'धातु or /dhatu - Describe a verb form.',
+        'शब्द or /shabda - Describe a word form.',
+        'विग्रह or /vigraha - Display the sandhi samaas split.',
     ]
 
     await event.respond('\n'.join(help_message))
@@ -370,6 +370,26 @@ async def search(event):
             for output_scheme in transliteration_config['schemes']
         ]
 
+        suggestion_command = [
+            sanscript.transliterate(
+                x,
+                transliteration_config['internal'],
+                output_scheme
+            )
+            for x in ['सूचना', 'प्रतिक्रिया']
+            for output_scheme in transliteration_config['schemes']
+        ]
+
+        help_command = [
+            sanscript.transliterate(
+                x,
+                transliteration_config['internal'],
+                output_scheme
+            )
+            for x in ['साहाय्य']
+            for output_scheme in transliteration_config['schemes']
+        ]
+
         if keys[0] in dhatu_command:
             await search_verb(event)
         elif keys[0] in shabda_command:
@@ -380,6 +400,10 @@ async def search(event):
             await search_word_forms(event)
         elif keys[0] in vigraha_command:
             await sandhi_samaasa_split(event)
+        elif keys[0] in suggestion_command:
+            await give_suggestions(event)
+        elif keys[0] in help_command:
+            await help(event)
         else:
             await event.respond("क्षम्यताम्।")
             await help(event)
@@ -497,7 +521,7 @@ async def search_verb(event):
             format_verb_match(match)
             for match in Dhatu.search(search_key)
         ]
-        print(matches)
+        # print(matches)
         if not matches:
             await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
         else:
@@ -680,15 +704,15 @@ async def sandhi_samaasa_split(event):
 ###############################################################################
 
 
-@bot.on(events.NewMessage(pattern='^/(suggest|feedback)'))
-async def givesuggestions(event):
+@bot.on(events.NewMessage(pattern='^/(suggest|feedback|pratikriya|suchana)'))
+async def give_suggestions(event):
     """Give suggestions"""
     message = event.text
     sender = await event.get_sender()
     user_file = os.path.join(config.suggestion_dir, f"{sender.username}.txt")
     with open(user_file, 'a') as f:
-        f.write("\n".join(f"--- {datetime.datetime.now()} ---", message))
-    await event.reply("धन्यवादाः।")
+        f.write("\n".join([f"--- {datetime.datetime.now()} ---", message, ""]))
+    await event.reply("समीचीना सूचना। धन्यवादः।")
 
 ###############################################################################
 # Deprecated Functionality
