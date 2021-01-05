@@ -167,7 +167,7 @@ class HeritageOutput:
         rows = tab.find_all('tr')
         output = []
         for row in rows:
-            cols = [col.get_text() for col in row.find_all('th')]
+            cols = [col.get_text().split() for col in row.find_all('th')]
             output.append(cols)
         output = output[:2] + output[3:] + [output[2]]
         return output
