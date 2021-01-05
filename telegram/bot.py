@@ -35,7 +35,7 @@ Shabda = shabdapatha.ShabdaPatha('shabda.json')
 if not config.hellwig_splitter_dir:
     class NonSplitter:
         def split(self, sentence):
-            return "अहम् विग्रहः कर्तुम् न शक्नोमि।"
+            return "दत्तपदस्य विग्रहं कर्तुं न शक्यते"
     Vigraha = NonSplitter()
 else:
     import splitter
@@ -61,7 +61,7 @@ bot = TelegramClient(
 
 transliteration_config = {
     'schemes': {
-        sanscript.DEVANAGARI: 'Devanagari',
+        sanscript.DEVANAGARI: 'देवनागरी',
         sanscript.HK: 'Harvard-Kyoto',
         sanscript.VELTHUIS: 'Velthuis',
         sanscript.ITRANS: 'ITRANS'
@@ -193,7 +193,7 @@ async def start(event):
 
     start_message = [
         '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठः शब्दपाठः च जानामि।',
+        'अहम् धातुपाठं शब्दपाठं पदविग्रहं च जानामि।',
     ]
 
     await event.respond('\n'.join(start_message), parse_mode='html')
@@ -212,12 +212,12 @@ async def help(event):
     """Send a message when the command /help is issued."""
 
     help_message = [
-        'The following commands are supported.',
-        'साहाय्य or /help - Print this help.',
-        'लेखनविधि or /setscheme - Choose input scheme (Default - Devanagari).',
-        'धातु or /dhatu - Describe a verb form.',
-        'शब्द or /shabda - Describe a word form.',
-        'विग्रह or /vigraha - Display the sandhi samaas split.',
+        'उपलब्ध-आदेशाः –',
+        'साहाय्य or /help - साहाय्यक-पटलं दर्शयतु (Print this help)',
+        'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',
+        'धातु or /dhatu - एकं धातुं अन्वेषयतु (Search a verb form)',
+        'शब्द or /shabda - एकं शब्दं अन्वेषयतु (Search a word form)',
+        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)'
     ]
 
     await event.respond('\n'.join(help_message))
@@ -410,8 +410,8 @@ async def search(event):
     elif len(keys) == 1:
         text = f'query_{event_text}'
         keyboard = [
-            [Button.inline("सुबन्तम्", data=f'{text} sup'),
-             Button.inline("तिङन्तम्", data=f'{text} tiG')],
+            [Button.inline("सुबन्तम् पदम्", data=f'{text} sup'),
+             Button.inline("तिङन्तम् पदम्", data=f'{text} tiG')],
             [Button.inline("साहाय्यम्", data=f'{text} help')]
         ]
         await event.reply('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
@@ -496,8 +496,6 @@ async def show_verb_forms(event):
             await event.respond(dhaturupa_output)
         else:
             print(f"INVALID_VERBINDEX: {dhaatu_idx}")
-            await event.reply("धातुक्रमाङ्कः सम्यक् नास्ति।")
-
     raise events.StopPropagation
 
 
@@ -533,7 +531,7 @@ async def search_verb(event):
                 match_message = match[0].split("\n")
                 kramanka = match[1].replace(".", "_")
 
-                match_message.append(f'रूपं दर्शनम् - /dr_{kramanka}')
+                match_message.append(f'रूपं दर्शयतु - /dr_{kramanka}')
                 display_message.append('\n'.join(match_message))
 
             max_char_len = 4096
@@ -597,7 +595,7 @@ async def search_word(event):
     print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
     else:
         # wait_message = [
         #     'Please wait.'
@@ -742,7 +740,7 @@ async def search_word_old(event):
     print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
     else:
         search_key = sanscript.transliterate(
             search_key,
@@ -777,7 +775,7 @@ async def show_word_forms_old(event):
         await event.respond(format_word_forms_old(shabda, rupaani))
     else:
         print(f"INVALID_WORDINDEX: {shabda_idx}")
-        await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
+        await event.reply("कृपया शब्दक्रमाङ्कं लिखतु।")
 
 
 ###############################################################################
