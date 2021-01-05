@@ -94,16 +94,16 @@ def get_user_scheme(sender_id):
 # Output formats for dhatu dhaturupa shabda and shabdarupa
 
 
-def format_word_match(root, gender):
+def format_word_match(root, gender, cases):
     """ Print root, gender, list(vibhakti - vachan) """
     output = [
-        f'<b>प्रातिपदिकम्</b> - {shabda}',
+        f'<b>प्रातिपदिकम्</b> - {root}',
         f'<b>लिङ्गम्</b> - {gender}',
         '----------'
         # f'<b>vachana - vibhakti </b>'
     ]
 
-    for ele in shabda['genders'][gender]:
+    for ele in cases:
         output.append(f"{ele['case']} {ele['number']}")
     output.append('----------')
 
@@ -646,7 +646,7 @@ async def search_word_new(event):
                     #     'रूपं दर्शयतु', data=f'wordsearch_{root}_{gender}'
                     # )]]
 
-                    match_message = format_word_match(root, gender)
+                    match_message = format_word_match(root, gender, genders[gender])
                     gender_en = gender_map[gender]
                     print(root_en, gender_en)
                     match_message.append(f'रूपं दर्शनम् - /sr_{root_en}_{gender_en}')
