@@ -595,39 +595,40 @@ async def search_word_new(event):
         """
         for solution in Heritage.get_analysis(search_key):
             has_gender = False
-            grouped = {}
-            grouped['genders'] = {}
-            for analysis in solution['words'][0]['analyses']:
-                grouped['root'] = solution['words'][0]['root']
-                match = {}
-                match['root'] = solution['words'][0]['root']
-                for x in analysis:
-                    for a_key, a_values in heritage.HERITAGE_LANG.items():
-                        if x in a_values:
-                            match[a_key] = a_values[x]
-                            if a_key == 'gender':
-                                has_gender = True
+            for word_analysis in solution['words'][0]:
+                grouped = {}
+                grouped['genders'] = {}
+                for analysis in word_analysis['analyses']:
+                    grouped['root'] = word_analysis['root']
+                    match = {}
+                    match['root'] = word_analysis['root']
+                    for x in analysis:
+                        for a_key, a_values in heritage.HERITAGE_LANG.items():
+                            if x in a_values:
+                                match[a_key] = a_values[x]
+                                if a_key == 'gender':
+                                    has_gender = True
 
-                if has_gender:
-                    if match['gender'] not in grouped['genders']:
-                        grouped['genders'][match['gender']] = []
+                    if has_gender:
+                        if match['gender'] not in grouped['genders']:
+                            grouped['genders'][match['gender']] = []
 
-                    grouped['genders'][match['gender']].append({
-                        'case': match['case'],
-                        'number': match['number']
-                    })
-                    matches.append(match)
+                        grouped['genders'][match['gender']].append({
+                            'case': match['case'],
+                            'number': match['number']
+                        })
+                        matches.append(match)
 
-            if grouped['genders']:
-                if grouped['root'] not in grouped_matches:
-                    grouped_matches[grouped['root']] = {}
+                if grouped['genders']:
+                    if grouped['root'] not in grouped_matches:
+                        grouped_matches[grouped['root']] = {}
 
-                for gender, gender_values in grouped['genders'].items():
-                    if gender not in grouped_matches[grouped['root']]:
-                        grouped_matches[grouped['root']][gender] = []
-                    grouped_matches[grouped['root']][gender].extend(
-                        gender_values
-                    )
+                    for gender, gender_values in grouped['genders'].items():
+                        if gender not in grouped_matches[grouped['root']]:
+                            grouped_matches[grouped['root']][gender] = []
+                        grouped_matches[grouped['root']][gender].extend(
+                            gender_values
+                        )
 
         if not matches:  # TODO: verify if this is the condition we need
             await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
