@@ -144,6 +144,9 @@ class DhatuPatha:
             Can be the index number, dhatu text (with or without swara),
             meaning (Sanskrit or English) or any valid form of that dhatu
 
+        fuzzy_match : bool, (optional)
+            If true, search within keys instead of searching for exact keys
+
         Returns
         -------
         search_matches : list(dict)
@@ -168,7 +171,11 @@ class DhatuPatha:
                 if k in self.display_keys
             }
             for key in self.search_keys:
-                if search_str in dhatu[key]:
+                if kwargs.get('fuzzy_match') is True:
+                    condition = search_str in dhatu[key]
+                else:
+                    condition = search_str == dhatu[key]
+                if condition:
                     search_matches.append({
                         'dhatu': display_dhatu,
                         'type': key,
