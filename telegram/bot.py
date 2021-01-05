@@ -226,7 +226,8 @@ async def help(event):
         'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',
         'धातु or /dhatu - एकं धातुं अन्वेषयतु (Search a verb form)',
         'शब्द or /shabda - एकं शब्दं अन्वेषयतु (Search a word form)',
-        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)'
+        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',
+        'सूचना or /suggest - अभिप्रायसङ्कलनं करोतु (Collect feedback)'
     ]
 
     await event.respond('\n'.join(help_message))
