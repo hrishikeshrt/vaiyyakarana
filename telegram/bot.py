@@ -162,7 +162,6 @@ def format_verb_forms(dhatu, rupaani, full_flag):
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
         (f"{dhatupatha.VALUES_LANG['gana'][dhatu['gana']]}, "
          f"{dhatupatha.VALUES_LANG['pada'][dhatu['pada']]}, "),
-        '+' + '-' * 60 + '+',
     ]
 
     show_lakara = [
@@ -170,21 +169,28 @@ def format_verb_forms(dhatu, rupaani, full_flag):
         'alat', 'alang', 'alrut', 'alot'
     ]
 
+    p_output = []
+    a_output = []
     for lakara, forms in rupaani.items():
         if not full_flag and lakara not in show_lakara:
             continue
         if forms:
-            output.append('')
-            output.append(dhatupatha.LAKARA_LANG[lakara])
-            output.append("```" + tabulate.tabulate(
+            if lakara.startswith('a'):
+                _output = a_output
+            if lakara.startswith('p'):
+                _output = p_output
+
+            _output.append('')
+            _output.append(dhatupatha.LAKARA_LANG[lakara])
+            _output.append("```" + tabulate.tabulate(
                 [[', '.join(cell) for cell in row] for row in forms],
                 headers="firstrow",
                 tablefmt="rst",
                 colalign=['left', 'right', 'right']
-            )+ "```")
-            # output.extend([str(row) for row in forms])
+            ) + "```")
+
     # output.append('+' + '-' * 60 + '+',)
-    return '\n'.join(output)
+    return ['\n'.join(_output) for _output in [output, p_output, a_output]]
 
 ###############################################################################
 
@@ -471,7 +477,7 @@ async def show_verb_forms_wrapper(event):
     full_keyword = 'full' if 'full' in words else ''
     kramanka = '.'.join(words[1:3])
     event.text = ' '.join(['/dhaturupa', kramanka, full_keyword])
-    # print(f'dr {event.text}')
+    print(f'dr {event.text}')
     await show_verb_forms(event)
     raise events.StopPropagation
 
@@ -479,11 +485,11 @@ async def show_verb_forms_wrapper(event):
 @bot.on(events.NewMessage(pattern='^/dhaturupa'))
 async def show_verb_forms(event):
     words = event.text.split()
-    search_key = '.'.join(event.text.split()[1:3])
+    search_key = '.'.join(words[1:3])
     full_flag = 'full' in words
     # print(f'svf {full_flag}')
     if search_key == "" or len(search_key.split()) > 1:
-        # await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
+        # await event.reply('USAGE: /dhaturupa धातुः/धातुरूपम्')
         pass
     else:
         dhaatu_idx = Dhatu.validate_index(search_key)
@@ -499,14 +505,15 @@ async def show_verb_forms(event):
                 dhaturupa_output = '\n'.join([
                     dhaturupa_output, full_command
                 ])
-            await event.respond(dhaturupa_output)
+            for output in dhaturupa_output:
+                await event.respond(output)
         else:
             # print(f"INVALID_VERBINDEX: {dhaatu_idx}")
             pass
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='^/dhatu'))
+@bot.on(events.NewMessage(pattern='^/dhatu '))
 async def search_verb(event):
     global transliteration_scheme
     global transliteration_config
@@ -515,7 +522,7 @@ async def search_verb(event):
     # print(f"VERBSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /dhatu धातुम्/ धातुरूपम्')
+        await event.reply('USAGE: /dhatu धातुः/धातुरूपम्')
     else:
         search_key = sanscript.transliterate(
             search_key,
@@ -591,7 +598,7 @@ async def search_word_forms(event):
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='^/shabda'))
+@bot.on(events.NewMessage(pattern='^/shabda '))
 async def search_word(event):
     global transliteration_scheme
     global transliteration_config
@@ -602,7 +609,7 @@ async def search_word(event):
     # print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
+        await event.reply('USAGE: /shabda शब्दः/शब्दरूपम्')
     else:
         # wait_message = [
         #     'Please wait.'
@@ -688,7 +695,7 @@ async def search_word(event):
             )
 
 
-@bot.on(events.NewMessage(pattern='^/vigraha'))
+@bot.on(events.NewMessage(pattern='^/vigraha '))
 async def sandhi_samaasa_split(event):
     """Output the sandhi split of the input word."""
     global transliteration_scheme
