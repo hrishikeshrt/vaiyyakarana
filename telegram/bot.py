@@ -129,7 +129,8 @@ def format_verb_match(dhaatu):
         output.append(f'**{output_key}** - {output_val}')
 
     if dhaatu['desc']:
-        output.append(dhaatu['desc'])
+        output.append("")
+        output.append(f"**{dhaatu['desc']}**")
 
     max_len = max([len(output[i]) for i in range(len(output)-1) if i % 2 == 0])
     output2 = []
