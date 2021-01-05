@@ -711,7 +711,7 @@ async def sandhi_samaasa_split(event):
     if input_line == "":
         await event.reply('USAGE: /split पद')
     else:
-        await event.reply(split_line)
+        await event.respond(split_line)
 
 ###############################################################################
 
