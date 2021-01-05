@@ -1,28 +1,24 @@
-# Telegram Bot
+# Vyakarana Telegram Bot
 
+A bot which can,
+* Identify Sanskrit declensions and conjugations
+* Segment a Sanskrit sentence by splitting on Sandhi and Samaasa
 Uses https://docs.telethon.dev/en/latest/
 
+The bot is powered by,
+* https://ashtadhyayi.com for conjugations (Dhaatu Paatha)
+* Heritage Platform by Gerard Huet for declensions
+* Sandhi and Compound Splitter by Oliver Hellwig
 
-## Dependencies:
-* python-3.8
-* indic_transliteration-2.1.0
-* telethon-1.18.2
-* requests-2.25.1
-* beautifulsoup4-4.9.3
+## Install
 
-## Instructions:
+Please refer to the INSTALL.md file for installation instructions.
 
-1. Acquire API details from https://core.telegram.org/api/obtaining_api_id and fill them in config.sample.py.
-2. A bot needs to be created with BotFather: https://t.me/botfather and fill in `bot_token` of config.sample.py.
-3. After filling in the details rename config.sample.py to config.py
-4. Run python bot.py
+## Usage
 
-Bot is now online and can be messaged directly.
-
-## Supported Operations 
 1. /verbsearch \<verb form\>
 
-    Eg: /verbsearch भवति 
+    Eg: /verbsearch भवति
 2. /verbforms \<धातुक्रमाङ्कः\>
 
     Eg: /verbform 08.001
