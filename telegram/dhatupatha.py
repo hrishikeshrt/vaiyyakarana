@@ -209,16 +209,17 @@ class DhatuPatha:
         output = {}
         for lakara, forms in dhatu_forms['rupaani'].items():
             output[lakara] = [
-                [[], [], []],
-                [[], [], []],
-                [[], [], []]
+                [[""], ["एक."], ["द्वि."], ["बहु."]],
+                [["प्र."], [], [], []],
+                [["म."], [], [], []],
+                [["उ."], [], [], []]
             ] if forms.strip() else []
             if not forms.strip():
                 continue
             for pv_idx, pv_forms in enumerate(forms.split(';')):
                 purusha_idx = pv_idx // 3
                 vachana_idx = pv_idx % 3
-                output[lakara][purusha_idx][vachana_idx] = pv_forms.split(',')
+                output[lakara][purusha_idx + 1][vachana_idx + 1] = pv_forms.split(',')
         return output
 
     @staticmethod

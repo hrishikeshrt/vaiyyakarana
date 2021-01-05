@@ -175,11 +175,12 @@ def format_verb_forms(dhatu, rupaani, full_flag):
         if forms:
             output.append('')
             output.append(dhatupatha.LAKARA_LANG[lakara])
-            output.append(tabulate.tabulate(
+            output.append("```" + tabulate.tabulate(
                 [[', '.join(cell) for cell in row] for row in forms],
+                headers="firstrow",
                 tablefmt="rst",
                 colalign=['left', 'right', 'right']
-            ))
+            )+ "```")
             # output.extend([str(row) for row in forms])
     # output.append('+' + '-' * 60 + '+',)
     return '\n'.join(output)
@@ -412,6 +413,7 @@ async def search(event):
         keyboard = [
             [Button.inline("सुबन्तम् पदम्", data=f'{text} sup'),
              Button.inline("तिङन्तम् पदम्", data=f'{text} tiG')],
+            [Button.inline("सन्धिपदम् समस्तपदम्", data=f'{text} vig')],
             [Button.inline("साहाय्यम्", data=f'{text} help')]
         ]
         await event.reply('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
@@ -455,6 +457,9 @@ async def redirect(event):
     elif form == 'tiG':
         event.text = '/dhatu ' + text
         await search_verb(event)
+    elif form == 'vig':
+        event.text = '/vigraha ' + text
+        await sandhi_samaasa_split(event)
 
 ###############################################################################
 
@@ -482,7 +487,7 @@ async def show_verb_forms(event):
     else:
         dhaatu_idx = Dhatu.validate_index(search_key)
         if dhaatu_idx:
-            print(f"VERBINDEX: {dhaatu_idx}")
+            # print(f"VERBINDEX: {dhaatu_idx}")
             dhaatu = Dhatu.get(dhaatu_idx)
             rupaani = Dhatu.get_forms(dhaatu_idx)
             dhaturupa_output = format_verb_forms(dhaatu, rupaani, full_flag)
@@ -495,7 +500,8 @@ async def show_verb_forms(event):
                 ])
             await event.respond(dhaturupa_output)
         else:
-            print(f"INVALID_VERBINDEX: {dhaatu_idx}")
+            # print(f"INVALID_VERBINDEX: {dhaatu_idx}")
+            pass
     raise events.StopPropagation
 
 
@@ -505,7 +511,7 @@ async def search_verb(event):
     global transliteration_config
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    print(f"VERBSEARCH: {search_key}")
+    # print(f"VERBSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
         await event.reply('USAGE: /dhatu धातुम्/ धातुरूपम्')
@@ -571,7 +577,7 @@ async def search_word_forms(event):
         root = words[1]
         gender = words[2]
 
-        print(f'WORDFORMS: {root} {gender}')
+        # print(f'WORDFORMS: {root} {gender}')
 
         rupaani = Heritage.get_declensions(root, gender)
         rupaani[0][0] = ""
@@ -592,7 +598,7 @@ async def search_word(event):
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
 
-    print(f"WORDSEARCH: {search_key}")
+    # print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
         await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
@@ -693,7 +699,7 @@ async def sandhi_samaasa_split(event):
         transliteration_config['internal']
     )
     split_line = Vigraha.split(input_line)
-    print(f"SPLIT: '{input_line}' --> '{split_line}'")
+    # print(f"SPLIT: '{input_line}' --> '{split_line}'")
     if input_line == "":
         await event.reply('USAGE: /split पद')
     else:
@@ -737,7 +743,7 @@ async def search_word_old(event):
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
 
-    print(f"WORDSEARCH: {search_key}")
+    # print(f"WORDSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
         await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
@@ -747,7 +753,7 @@ async def search_word_old(event):
             get_user_scheme(sender_id),
             transliteration_config['internal']
         )
-        print(Shabda.search(search_key))
+        # print(Shabda.search(search_key))
         matches = [
             format_word_match(match)  # old formatting function was removed
             for match in Shabda.search(search_key)
@@ -769,12 +775,12 @@ async def show_word_forms_old(event):
     """Deprecated"""
     shabda_idx = Shabda.validate_index(' '.join(event.text.split()[1:]))
     if shabda_idx:
-        print(f"WORDINDEX: {shabda_idx}")
+        # print(f"WORDINDEX: {shabda_idx}")
         shabda = Shabda.get(shabda_idx)
         rupaani = Shabda.get_forms(shabda_idx)
         await event.respond(format_word_forms_old(shabda, rupaani))
     else:
-        print(f"INVALID_WORDINDEX: {shabda_idx}")
+        # print(f"INVALID_WORDINDEX: {shabda_idx}")
         await event.reply("कृपया शब्दक्रमाङ्कं लिखतु।")
 
 
