@@ -437,7 +437,7 @@ async def show_verb_forms(event):
     search_key = ' '.join(event.text.split()[1:])
 
     if search_key == "" or len(search_key.split()) > 1:
-        # await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
+        #await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
         pass
     else:
         dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
@@ -494,7 +494,17 @@ async def search_verb(event):
                 
                 match_message.append(f'रूपं दर्शनम् - /dr_{dhatu}_{gana}')
                 display_message.append('\n'.join(match_message))
-            await event.respond('\n\n'.join(display_message))
+            max_char_len = 4096
+            curr_msg = []
+            curr_length = 0
+            for msg in display_message:
+                msg_len = len(msg)
+                if curr_length + msg_len > max_char_len:
+                    await event.respond('\n\n'.join(curr_msg))
+                    curr_msg = []
+                    curr_length = 0
+                curr_msg.append(msg)
+                curr_length = curr_length + msg_len
 
 
 @bot.on(events.NewMessage(pattern='^/sr_'))
