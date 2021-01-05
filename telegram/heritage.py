@@ -154,9 +154,14 @@ class HeritageOutput:
                 else:
                     # Inner table contains analysis and it occurs after
                     # the original word
-                    word.update(self.parse_analysis(table.get_text()))
+                    analyses = self.parse_analysis(table.get_text())
                     word['classes'] = table.get('class', [])
-                    solution['words'].append(word)
+                    word_analyses = []
+                    for analysis in analyses:
+                        word_copy = word.copy()
+                        word_copy.update(analysis)
+                        word_analyses.append(word_copy)
+                    solution['words'].append(word_analyses)
 
             solutions.append(solution)
         return solutions
@@ -178,16 +183,18 @@ class HeritageOutput:
         Parse analysis of a single word
         Analysis Format is: [root]{analysis_1 | analysis_2 | ..}
         """
-        pattern = r'^\[([^\]]*)\]\{([^\}]*)\}$'
-        match = re.search(pattern, text.strip(), flags=re.DOTALL)
-        analysis = {}
-        if match:
+        pattern = r'\[([^\]]*)\]\{([^\}]*)\}'
+        matches = re.finditer(pattern, text.strip(), flags=re.DOTALL)
+        analyses = []
+        for match in matches:
+            analysis = {}
             analysis['root'] = match.group(1)
             analysis['analyses'] = [
-                [abbrev.replace('.', '') for abbrev in analysis.split()]
-                for analysis in match.group(2).split('|')
+                [abbrev.replace('.', '') for abbrev in an.split()]
+                for an in match.group(2).split('|')
             ]
-        return analysis
+            analyses.append(analysis)
+        return analyses
 
     def __repr__(self):
         return repr(self.soup)
