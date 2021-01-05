@@ -9,6 +9,8 @@ Created on Fri Nov 27 19:04:19 2020
 from telethon import TelegramClient, events, sync, Button
 from indic_transliteration import sanscript
 
+import tabulate
+
 import dhatupatha
 import shabdapatha
 import heritage
@@ -36,7 +38,7 @@ else:
     import splitter
     Vigraha = splitter.Splitter(config.hellwig_splitter_dir)
 
-if not config.heritage_platform_dir:
+if config.heritage_platform_dir:
     Heritage = heritage.HeritagePlatform(config.heritage_platform_dir)
 else:
     Heritage = heritage.HeritagePlatform('', method='web')
@@ -68,37 +70,53 @@ transliteration_scheme = {}
 
 ###############################################################################
 
+gender_map = {
+    'm' : 'पुंलिङ्गम्',
+    'पुंलिङ्गम्' : 'm',
+    'f' : 'स्त्रीलिङ्गम्',
+    'स्त्रीलिङ्गम्' : 'f',
+    'n' : 'नपुंसकलिङ्गम्',
+    'नपुंसकलिङ्गम्' : 'n'
+}
+
+###############################################################################
 # Output formats for dhatu dhaturupa shabda and shabdarupa
 
-def format_word_match(shabda):
-    output = []
-    for k, v in shabda['shabda'].items():
-        output_key = shabdapatha.SHABDA_LANG.get(k, k)
-        output_val = v
-        if k in shabdapatha.VALUES_LANG:
-            output_val = shabdapatha.VALUES_LANG[k][v]
-        output.append(f'**{output_key}**: {output_val}')
-        if output_key == 'क्रमाङ्कः':
-            kramanka = output_val
+def format_word_match(shabda, gender):
+    """ Print root, gender, list(vibhakti - vachan) """
+    output = [
+        f'<b>शब्दः</b> - {shabda["root"]}',
+        f'<b>लिङ्गम्</b> - {gender}',
+        '----------'
+        #f'<b>vachana - vibhakti </b>'
+    ]
 
-    if shabda['desc']:
-        output.append(shabda['desc'])
-    return '\n'.join(output), kramanka
+    for ele in shabda['genders'][gender]:
+        output.append(f"{ele['case']} {ele['number']}")
+    output.append('----------')
+
+    return output
 
 
 def format_verb_match(dhaatu):
+
     output = []
     kramanka = ''
     for k, v in dhaatu['dhatu'].items():
         output_key = dhatupatha.DHATU_LANG.get(k, k)
         output_val = v
+        if output_key == 'क्रमाङ्कः':
+            kramanka = output_val
+            continue
         if k in dhatupatha.VALUES_LANG:
             output_val = dhatupatha.VALUES_LANG[k][v]
         output.append(f'**{output_key}**: {output_val}')
-        if output_key == 'क्रमाङ्कः':
-            kramanka = output_val
+        
     if dhaatu['desc']:
         output.append(dhaatu['desc'])
+
+    output.append('----------')
+        
     return '\n'.join(output), kramanka
 
 
@@ -111,6 +129,15 @@ def format_word_forms(shabda, rupaani):
     for idx, forms in enumerate(rupaani):
         output.append(f"**{shabdapatha.VIBHAKTI[idx]}**: {forms}")
     return '\n'.join(output)
+
+
+def format_word_forms_new(rupaani):
+    formatted_table = tabulate.tabulate(
+        [[', '.join(cell) for cell in row] for row in rupaani],
+        headers="firstrow", tablefmt="rst", colalign=['left', 'right', 'right', 'right']
+    )
+
+    return f"```{formatted_table}```"
 
 
 def format_verb_forms(dhatu, rupaani):
@@ -240,6 +267,7 @@ async def scheme_handler(event):
     ]
 
     await event.respond('\n'.join(response_message))
+    raise events.StopPropagation
 
 
 @bot.on(events.CallbackQuery(pattern='^query_'))
@@ -253,7 +281,8 @@ async def query_handler(event):
 
 
 @bot.on(events.CallbackQuery(pattern='^[wordsearch_]|[verbsearch_]'))
-async def query__handler(event):
+async def query_handler2(event):
+    """ Invoked from search_word_new() """
     await redirect2(event)
 
 
@@ -289,7 +318,7 @@ async def search(event):
         ]
         shabda_command = shabda_command + ['shabd']
 
-        dhaturup_command = [
+        dhaturupa_command = [
             sanscript.transliterate(
                 'धातुरूप',
                 transliteration_config['default'],
@@ -297,9 +326,9 @@ async def search(event):
             )
             for output_scheme in transliteration_config['schemes']
         ]
-        dhaturup_command = dhatu_command + ['dhaturup']
+        dhaturupa_command = dhaturupa_command + ['dhaturup']
 
-        shabdarup_command = [
+        shabdarupa_command = [
             sanscript.transliterate(
                 'शब्दरूप',
                 transliteration_config['default'],
@@ -307,7 +336,7 @@ async def search(event):
             )
             for output_scheme in transliteration_config['schemes']
         ]
-        shabdarup_command = shabdarup_command + ['shabdarup']
+        shabdarupa_command = shabdarupa_command + ['shabdarup']
 
         vigraha_command = [
             sanscript.transliterate(
@@ -321,11 +350,11 @@ async def search(event):
         if keys[0] in dhatu_command:
             await search_verb(event)
         elif keys[0] in shabda_command:
-            await search_word(event)
-        elif keys[0] in dhaturup_command:
+            await search_word_new(event)
+        elif keys[0] in dhaturupa_command:
             await show_verb_forms(event)
-        elif keys[0] in shabdarup_command:
-            await show_word_forms(event)
+        elif keys[0] in shabdarupa_command:
+            await show_word_forms_new(event)
         elif keys[0] in vigraha_command:
             await sandhi_samaasa_split(event)
         else:
@@ -360,12 +389,13 @@ async def search(event):
 async def redirect2(event):
     print('Redirect2')
     data = event.data.decode('utf-8')
-    form, text = data.split('_')
-    if form == 'wordsearch':
-        event.text = '/wordforms ' + text
-        await show_word_forms(event)
-    elif form == 'verbsearch':
-        event.text = '/verbforms ' + text
+    words = data.split('_')
+    command = words[0]
+    if command == 'wordsearch':
+        event.text = '/shabdarupa ' + ' '.join(words[1:])
+        await show_word_forms_new(event)
+    elif command == 'verbsearch':
+        event.text = '/dhaturupa ' + ' '.join(words[1:])
         await show_verb_forms(event)
 
 
@@ -375,12 +405,32 @@ async def redirect(event):
     text, form = data.split('_')[1].split()
     if form == 'sup':
         event.text = '/shabda ' + text
-        await search_word(event)
+        await search_word_new(event)
     elif form == 'tiG':
         event.text = '/dhatu ' + text
         await search_verb(event)
 
 ###############################################################################
+
+
+@bot.on(events.NewMessage(pattern='^/dhaturupa'))
+async def show_verb_forms(event):
+    search_key = ' '.join(event.text.split()[1:])
+
+    if search_key == "" or len(search_key.split()) > 1:
+        await event.reply('USAGE: /dhaturupa धातुम्/ धातुरूपम्')
+    else:
+        dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
+        if dhaatu_idx:
+            print(f"VERBINDEX: {dhaatu_idx}")
+            dhaatu = Dhatu.get(dhaatu_idx)
+            rupaani = Dhatu.get_forms(dhaatu_idx)
+            await event.respond(format_verb_forms(dhaatu, rupaani))
+        else:
+            print(f"INVALID_VERBINDEX: {dhaatu_idx}")
+            await event.reply("धातुक्रमाङ्कः सम्यक् नास्ति।")
+    
+    raise events.StopPropagation
 
 
 @bot.on(events.NewMessage(pattern='^/dhatu'))
@@ -389,16 +439,17 @@ async def search_verb(event):
     global transliteration_config
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(
-        search_key,
-        transliteration_scheme[sender_id]['input'],
-        transliteration_config['default']
-    )
     print(f"VERBSEARCH: {search_key}")
 
-    if search_key == "":
-        await event.respond('USAGE: /dhatu धातुम्/ धातुरूपम्')
+    if search_key == "" or len(search_key.split()) > 1:
+        await event.reply('USAGE: /dhatu धातुम्/ धातुरूपम्')
     else:
+        search_key = sanscript.transliterate(
+            search_key,
+            transliteration_scheme[sender_id]['input'],
+            transliteration_config['default']
+        )
+        
         matches = [
             format_verb_match(match)
             for match in Dhatu.search(search_key)
@@ -406,44 +457,75 @@ async def search_verb(event):
         if not matches:
             await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
         else:
+            display_message = []
             for match in matches:
-                keyboard = [[Button.inline('रूपं दर्शयतु',
-                                           data=f'verbsearch_{match[1]}')]]
-            await event.respond(match[0], buttons=keyboard)
+                # keyboard = [[Button.inline('रूपं दर्शयतु',
+                #                            data=f'verbsearch_{match[1]}')]]
+                await event.respond(match[0], buttons=keyboard)
+                match_message = match[0].split("\n")
+                match_message.append(f'रूपं दर्शनम् - /dr_')
 
 
-@bot.on(events.NewMessage(pattern='^/dhaturupa'))
-async def show_verb_forms(event):
-    dhaatu_idx = Dhatu.validate_index(' '.join(event.text.split()[1:]))
-    if dhaatu_idx:
-        print(f"VERBINDEX: {dhaatu_idx}")
-        dhaatu = Dhatu.get(dhaatu_idx)
-        rupaani = Dhatu.get_forms(dhaatu_idx)
-        await event.reply(format_verb_forms(dhaatu, rupaani))
+@bot.on(events.NewMessage(pattern='^/sr_'))
+async def show_word_forms_new_wrapper(event):
+    words = event.text.split("_")
+    # Change back root from ITRANS to devanagari
+    words[1] = sanscript.transliterate(words[1], sanscript.ITRANS, transliteration_config['default'])
+    # Fetch gender
+    words[2] = gender_map[words[2]]
+    event.text = ' '.join(['/shabdarupa', words[1], words[2]])
+    await show_word_forms_new(event)
+    raise events.StopPropagation
+
+
+@bot.on(events.NewMessage(pattern='^/shabdarupa'))
+async def show_word_forms_new(event):
+    words = event.text.split()
+    if len(words) == 3:
+        root = words[1]
+        gender = words[2]
+
+        print(f'WORDFORMS: {root} {gender}')
+
+        rupaani = Heritage.get_declensions(root, gender)
+        await event.respond(format_word_forms_new(rupaani))
     else:
-        print(f"INVALID_VERBINDEX: {dhaatu_idx}")
-        await event.reply("कृपया धातुक्रमाङ्कः लिखतु।")
+        await event.reply("USAGE: /shabdarupa root gender")
 
 
-@bot.on(events.NewMessage(pattern='^/shabda_new'))
+bot.on(events.NewMessage(pattern='^/shabda'))
 async def search_word_new(event):
     global transliteration_scheme
     global transliteration_config
 
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(
-        search_key,
-        transliteration_scheme[sender_id]['input'],
-        transliteration_config['default']
-    )
+    
     print(f"WORDSEARCH: {search_key}")
 
-    if search_key == "":
-        await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+    if search_key == "" or len(search_key.split()) > 1:
+        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
+        # wait_message = [
+        #     'Please wait.'
+        # ]
+        # await event.reply('\n'.join(wait_message))
+        
+        search_key = sanscript.transliterate(
+            search_key,
+            transliteration_scheme[sender_id]['input'],
+            transliteration_config['default']
+        )
         matches = []
         grouped_matches = []
+        """ Format of grouped_matches
+            [
+                {
+                    root: praatipadik
+                    gender: {linga_1: [{case: vibhakti_1, number: vachan_1}, ...], linga_2: ... },
+                ...
+            ]
+        """
         for solution in Heritage.get_analysis(search_key):
             has_gender = False
             grouped = {}
@@ -475,32 +557,51 @@ async def search_word_new(event):
         if not matches:
             await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
         else:
-            for match in matches: # grouped_matches maybe
-                keyboard = [[
-                    Button.inline(
-                        'रूपं दर्शयतु', data=f'wordsearch_#root_#linga'
-                    )
-                ]]
-                await event.respond(match[0], buttons=keyboard)
+            keyboard = []
+            display_message = []
+            for match in grouped_matches:
+                print(match)
+                root = match['root']
+                root_en = sanscript.transliterate(root, transliteration_config['default'], sanscript.ITRANS)
+                for gender in match['genders']:
+                    # keyboard = [
+                    #     [
+                    #         Button.inline(
+                    #             'रूपं दर्शयतु', data=f'wordsearch_{root}_{gender}'
+                    #         )
+                    #     ]
+                    # ]
+
+                    match_message = format_word_match(match, gender)
+                    gender_en = gender_map[gender]
+                    print(root_en, gender_en)
+                    match_message.append(f'रूपं दर्शनम् - /sr_{root_en}_{gender_en}')
+
+                    display_message.append('\n'.join(match_message))
+                    print('\n\n'.join(display_message))
+
+                    # await event.respond('\n'.join(display_message), buttons=keyboard, parse_mode='html')
+            await event.respond('\n\n'.join(display_message), parse_mode='html')
 
 
-@bot.on(events.NewMessage(pattern='^/shabda'))
+@bot.on(events.NewMessage(pattern='^/old_shabda'))
 async def search_word(event):
     global transliteration_scheme
     global transliteration_config
 
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    search_key = sanscript.transliterate(
-        search_key,
-        transliteration_scheme[sender_id]['input'],
-        transliteration_config['default']
-    )
+    
     print(f"WORDSEARCH: {search_key}")
 
-    if search_key == "":
-        await event.respond('USAGE: /shabda शब्दम्/ शब्दरूपम्')
+    if search_key == "" or len(search_key.split()) > 1:
+        await event.reply('USAGE: /shabda शब्दम्/ शब्दरूपम्')
     else:
+        search_key = sanscript.transliterate(
+            search_key,
+            transliteration_scheme[sender_id]['input'],
+            transliteration_config['default']
+        )
         print(Shabda.search(search_key))
         matches = [
             format_word_match(match)
@@ -518,29 +619,17 @@ async def search_word(event):
                 await event.respond(match[0], buttons=keyboard)
 
 
-@bot.on(events.NewMessage(pattern='^/shabdarupa'))
+@bot.on(events.NewMessage(pattern='^/old_shabdarupa'))
 async def show_word_forms(event):
     shabda_idx = Shabda.validate_index(' '.join(event.text.split()[1:]))
     if shabda_idx:
         print(f"WORDINDEX: {shabda_idx}")
         shabda = Shabda.get(shabda_idx)
         rupaani = Shabda.get_forms(shabda_idx)
-        await event.reply(format_word_forms(shabda, rupaani))
+        await event.respond(format_word_forms(shabda, rupaani))
     else:
         print(f"INVALID_WORDINDEX: {shabda_idx}")
         await event.reply("कृपया शब्दक्रमाङ्कः लिखतु।")
-
-
-@bot.on(events.NewMessage(pattern='^/shabdarupa_new'))
-async def show_word_forms_new(event):
-    words = event.text.split()
-    if len(words) == 3:
-        root = words[1]
-        gender = words[2]
-        rupaani = Heritage.get_declensions(root, gender)
-        await event.reply(format_word_forms(root, rupaani))
-    else:
-        await event.reply("USAGE: /shabdarupa root gender")
 
 
 @bot.on(events.NewMessage(pattern='^/vigraha'))
@@ -557,7 +646,7 @@ async def sandhi_samaasa_split(event):
     split_line = Vigraha.split(input_line)
     print(f"SPLIT: '{input_line}' --> '{split_line}'")
     if input_line == "":
-        await event.respond('USAGE: /split पद')
+        await event.reply('USAGE: /split पद')
     else:
         await event.reply(split_line)
 
