@@ -586,8 +586,13 @@ async def search_word_forms(event):
         gender = words[2]
 
         # print(f'WORDFORMS: {root} {gender}')
+        shabdapatha_gender = gender_map[gender].replace('a', 'm')
+        shabda_idx = Shabda.get_word(root, shabdapatha_gender)
+        if shabda_idx is not None:
+            rupaani = Shabda.get_forms(shabda_idx)
+        else:
+            rupaani = Heritage.get_declensions(root, gender)
 
-        rupaani = Heritage.get_declensions(root, gender)
         rupaani[0][0] = ""
         await event.respond('\n'.join([
             f"**प्रातिपदिकम्**: {root}, **लिङ्गम्**: {gender}",

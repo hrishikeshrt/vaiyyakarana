@@ -141,22 +141,41 @@ class ShabdaPatha:
 
             for linga in linga_options:
                 for word_idx in self.antya_index[last_varna][linga]:
-                    word = self.get(word_idx)
+                    word = self.get_word_by_index(word_idx)
                     similar.append((word['word'], word['baseindex'], linga))
         return similar
 
-    def get(self, shabda_idx):
+    def get_word(self, word, gender):
+        gender = gender.upper().replace('M', 'P').replace('F', 'S')
+
+        for shabda_idx, shabda in self.index.items():
+            if shabda['word'] == word and shabda['linga'] == gender:
+                return shabda_idx
+        return None
+
+    def get_word_by_index(self, shabda_idx):
         shabda_idx = self.validate_index(shabda_idx)
         return self.index.get(shabda_idx, None)
 
-    def get_forms(self, shabda_idx):
+    def get_forms(self, shabda_idx, header=True):
         shabda_idx = self.validate_index(shabda_idx)
         shabda_forms = self.index.get(shabda_idx, None)
         if shabda_forms is None:
             return None
 
-        shabda_forms = self.get(shabda_idx)['forms']
+        shabda = self.get_word_by_index(shabda_idx)
+        shabda_forms = shabda['forms']
         shabda_forms = [shabda_forms[3 * i: 3 * i + 3] for i in range(8)]
+        if header:
+            linga = VALUES_LANG['linga'][shabda['linga']]
+            header_line = [[linga], ['एक'], ['द्वि'], ['बहु']]
+            shabda_forms = [header_line] + [
+                [[VIBHAKTI[idx]]] + [
+                    form.split('-') if form != '-' else []
+                    for form in vibhakti_forms
+                ]
+                for idx, vibhakti_forms in enumerate(shabda_forms)
+            ]
 
         return shabda_forms
 
@@ -169,6 +188,6 @@ class ShabdaPatha:
         if match:
             group_idx = match.group(1)
             inner_idx = match.group(2)
-            if 0 < int(group_idx) < 80:
+            if 0 < int(group_idx) <= 80:
                 return f'{group_idx.zfill(2)}.{inner_idx.zfill(3)}'
         return False
