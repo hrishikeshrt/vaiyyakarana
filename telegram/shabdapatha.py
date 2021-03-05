@@ -166,14 +166,16 @@ class ShabdaPatha:
         shabda = self.get_word_by_index(shabda_idx)
         shabda_forms = shabda['forms']
         shabda_forms = [shabda_forms[3 * i: 3 * i + 3] for i in range(8)]
+        shabda_forms = [
+            [form.split('-') if form != '-' else []
+             for form in vibhakti_forms]
+            for vibhakti_forms in shabda_forms
+        ]
         if header:
             linga = VALUES_LANG['linga'][shabda['linga']]
             header_line = [[linga], ['एक'], ['द्वि'], ['बहु']]
             shabda_forms = [header_line] + [
-                [[VIBHAKTI[idx]]] + [
-                    form.split('-') if form != '-' else []
-                    for form in vibhakti_forms
-                ]
+                [[VIBHAKTI[idx]]] + vibhakti_forms
                 for idx, vibhakti_forms in enumerate(shabda_forms)
             ]
 
