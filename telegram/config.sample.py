@@ -11,7 +11,7 @@ import os
 ###############################################################################
 
 home_dir = os.path.expanduser('~')
-data_dir = os.path.join(os.path.realpath(__file__), 'data')
+data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
 dhatu_file = os.path.join(data_dir, 'dhatu.json')
 shabda_file = os.path.join(data_dir, 'shabda.json')
