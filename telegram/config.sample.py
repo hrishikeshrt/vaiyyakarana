@@ -11,6 +11,11 @@ import os
 ###############################################################################
 
 home_dir = os.path.expanduser('~')
+data_dir = os.path.join(os.path.realpath(__file__), 'data')
+
+dhatu_file = os.path.join(data_dir, 'dhatu.json')
+shabda_file = os.path.join(data_dir, 'shabda.json')
+
 hellwig_splitter_dir = ''
 heritage_platform_dir = ''
 suggestion_dir = 'suggestions'

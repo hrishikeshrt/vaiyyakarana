@@ -9,7 +9,7 @@ Created on Fri Nov 27 19:04:19 2020
 import os
 import datetime
 
-from telethon import TelegramClient, events, sync, Button
+from telethon import TelegramClient, events, sync, Button  # noqa
 from indic_transliteration import sanscript
 
 import tabulate
@@ -19,18 +19,19 @@ import shabdapatha
 import heritage
 
 import config
+import samskrit_text as skt
 
 ###############################################################################
 
 Dhatu = dhatupatha.DhatuPatha(
-    'dhatu.json',
+    config.dhatu_file,
     display_keys=[
         'baseindex', 'dhatu', 'swara', 'gana', 'pada', 'artha', 'karma',
         'artha_english'
     ]
 )
 
-Shabda = shabdapatha.ShabdaPatha('shabda.json')
+Shabda = shabdapatha.ShabdaPatha(config.shabda_file)
 
 if not config.hellwig_splitter_dir:
     class NonSplitter:
@@ -223,10 +224,10 @@ async def help(event):
     help_message = [
         'उपलब्ध-आदेशाः –',
         'साहाय्य or /help - साहाय्यक-पटलं दर्शयतु (Print this help)',
-        'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',
+        'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',  # noqa
         'धातु or /dhatu - एकं धातुं अन्वेषयतु (Search a verb form)',
         'शब्द or /shabda - एकं शब्दं अन्वेषयतु (Search a word form)',
-        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',
+        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',  # noqa
         'सूचना or /suggest - अभिप्रायसङ्कलनं करोतु (Collect feedback)'
     ]
 
@@ -629,31 +630,40 @@ async def search_word(event):
         matches = []
         grouped_matches = {}
 
-        for solution in Heritage.get_analysis(search_key):
+        analyses = Heritage.get_analysis(search_key)
+        for _, solution in analyses.items():
             has_gender = False
             for word_analysis in solution['words'][0]:
                 grouped = {}
                 grouped['genders'] = {}
                 for analysis in word_analysis['analyses']:
                     grouped['root'] = word_analysis['root']
-                    match = {}
-                    match['root'] = word_analysis['root']
+                    _match = {}
+                    _match['root'] = word_analysis['root']
                     for x in analysis:
                         for a_key, a_values in heritage.HERITAGE_LANG.items():
                             if x in a_values:
-                                match[a_key] = a_values[x]
+                                _match[a_key] = a_values[x]
                                 if a_key == 'gender':
                                     has_gender = True
 
                     if has_gender:
-                        if match['gender'] not in grouped['genders']:
-                            grouped['genders'][match['gender']] = []
+                        if _match['gender'] not in grouped['genders']:
+                            grouped['genders'][_match['gender']] = []
 
-                        grouped['genders'][match['gender']].append({
-                            'case': match['case'],
-                            'number': match['number']
+                        # Hack to circumvent the आकारान्त root issue
+                        # present in Heritage Platform
+                        if _match['gender'] == 'स्त्रीलिङ्गम्':
+                            if _match['root'][-1] in skt.VYANJANA:
+                                _fixed_root = _match['root'] + skt.MATRA[0]
+                                _match['root'] = _fixed_root
+                                grouped['root'] = _fixed_root
+
+                        grouped['genders'][_match['gender']].append({
+                            'case': _match['case'],
+                            'number': _match['number']
                         })
-                        matches.append(match)
+                        matches.append(_match)
 
                 if grouped['genders']:
                     if grouped['root'] not in grouped_matches:

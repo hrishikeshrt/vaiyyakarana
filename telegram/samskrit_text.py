@@ -8,10 +8,12 @@ Updated on Thu Oct 31 23:43:34 2020
 """
 
 import re
-import warnings
+import logging
 
 from collections import defaultdict
 from itertools import product
+
+logger = logging.getLogger(__name__)
 
 ###############################################################################
 
@@ -27,7 +29,7 @@ def chr_unicode(u):
 ###############################################################################
 # Alphabet of samskRta
 
-MATRA = ['ा', 'ि', 'ी', 'ु',  'ू', 'ृ', 'ॄ', 'ॢ', 'ॣ', 'े', 'ै', 'ो', 'ौ', ]
+MATRA = ['ा', 'ि', 'ी', 'ु',  'ू', 'ृ', 'ॄ', 'ॢ', 'ॣ', 'े', 'ै', 'ो', 'ौ']
 SWARA = ['अ', 'आ', 'इ', 'ई', 'उ', 'ऊ', 'ऋ', 'ॠ', 'ऌ', 'ॡ', 'ए', 'ऐ', 'ओ', 'औ']
 KANTHYA = ['क', 'ख', 'ग', 'घ', 'ङ']
 TALAVYA = ['च', 'छ', 'ज', 'झ', 'ञ']
@@ -47,18 +49,23 @@ VARGA_TRITIYA = [VARGIYA[i * 5 + 2] for i in range(5)]
 VARGA_CHATURTHA = [VARGIYA[i * 5 + 3] for i in range(5)]
 VARGA_PANCHAMA = [VARGIYA[i * 5 + 4] for i in range(5)]
 
+LAGHU_SWARA = [SWARA[i] for i in [0, 2, 4, 6, 8]]
+LAGHU_MATRA = [MATRA[i] for i in [1, 3, 5, 7]]
+
 OM = 'ॐ'
 AVAGRAHA = 'ऽ'
 
 SWARITA = '॑'
+DOUBLE_SWARITA = '᳚'
+TRIPLE_SWARITA = '᳛'
 ANUDATTA = '॒'
-
 CHANDRABINDU = 'ँ'
 CHANDRABINDU_VIRAMA = 'ꣳ'
 CHANDRABINDU_SPACING = 'ꣲ'
 
 ANUSWARA = 'ं'
 VISARGA = 'ः'
+ARDHAVISARGA = 'ᳲ'
 JIHVAAMULIYA = 'ᳵ'
 UPADHMANIYA = 'ᳶ'
 
@@ -72,18 +79,19 @@ DOUBLE_DANDA = '॥'
 EXTRA_MATRA = [CHANDRABINDU, ANUSWARA, VISARGA]
 AYOGAVAAHA = EXTRA_MATRA + [JIHVAAMULIYA, UPADHMANIYA]
 
-VEDIC_MATRA = [SWARITA, ANUDATTA]
+VEDIC_MARKS = [SWARITA, ANUDATTA, DOUBLE_SWARITA, TRIPLE_SWARITA]
 SPECIAL = [AVAGRAHA, OM, NUKTA, CHANDRABINDU_VIRAMA, CHANDRABINDU_SPACING]
 OTHER = [HALANTA]
 
 VARNA = SWARA + VYANJANA
-ALPHABET = VARNA + MATRA + AYOGAVAAHA + SPECIAL + OTHER + VEDIC_MATRA
+ALPHABET = VARNA + MATRA + AYOGAVAAHA + SPECIAL + OTHER + VEDIC_MARKS
 
 SPACES = [' ', '\t', '\n', '\r']
 PUNC = [DANDA, DOUBLE_DANDA, ABBREV]
 GEN_PUNC = ['.', ',', ';', '', '"', "'", '`']
 
 DIGITS = ['०', '१', '२', '३', '४', '५', '६', '७', '८', '९']
+COMBINING_DIGIT_MARKS = ['꣠', '꣡', '꣢', '꣣', '꣤', '꣥', '꣦', '꣧', '꣨', '꣩']
 
 KSHA = 'क्ष'
 JNA = 'ज्ञ'
@@ -102,8 +110,9 @@ Some of the characters can also be typed using m17n-sanskrit-itrans keyboard
 
 Notable Unicodes and Shortcuts
 ---
-1cf6 for Upadhmaniya (ardhavisarga) -- pH
-1cf2 for Jihvamuliya (ardhavisarga) -- kH
+1cf2 for Ardhavisarga
+1cf5 for Jihvamuliya -- kH
+1cf6 for Upadhmaniya -- pH
 0951 for Swarita -- ''
 0952 for Anudatta -- _
 0901 for Chandrabindu -- .N
@@ -112,7 +121,7 @@ a8f2 for (stand-alone) Chandrabindu Spacing
 094d for Halanta -- .h
 
 0950 for Om -- OM
-a8e0 to a8e9 for Superscript 0-9
+a8e0 to a8e9 for Combining Devanagari Digits 0-9 (Swara Marks for Samaveda)
 """
 
 ###############################################################################
@@ -159,12 +168,12 @@ def form_pratyaahaara(letters):
         else:
             break
     else:
-        warnings.warn("Cannot form a pratyaahara due to discontinuity.")
+        logger.warning("Cannot form a pratyaahara due to discontinuity.")
         return None
 
     l_idx = [w[1] for w in v_idx]
     if HALANTA not in MAAHESHWARA_KRAMA[max(l_idx) + 1]:
-        warnings.warn("Cannot form a pratyaahara due to end position.")
+        logger.warning("Cannot form a pratyaahara due to end position.")
         return None
 
     aadi = MAAHESHWARA_KRAMA[min(l_idx)]
@@ -201,13 +210,13 @@ def resolve_pratyaahaara(pratyaahaara):
 
 
 def clean(text, punct=False, digits=False, spaces=True, allow=[]):
-    '''
+    """
     Clean a line of samskRta text
         - punct: False (True means punctuations are kept)
         - digits: False (True means digits are kept)
         - spaces: True (we usually don't want to change this)
         - allow: list of characters to allow
-    '''
+    """
     alphabet = ALPHABET + allow
     if spaces:
         alphabet += SPACES
@@ -224,6 +233,8 @@ def clean(text, punct=False, digits=False, spaces=True, allow=[]):
 def split_lines(text, pattern=r'[।॥\r\n]+'):
     return list(filter(None, re.split(pattern, text)))
 
+###############################################################################
+
 
 def trim_matra(line):
     answer = line
@@ -233,14 +244,43 @@ def trim_matra(line):
         answer = answer[:-1]
     return answer
 
+###############################################################################
+
+
+def is_laghu(syllable):
+    """
+    Checks if the current syllable is Laghu
+    """
+
+    return all([(x in VYANJANA or
+                x in LAGHU_SWARA or
+                x in LAGHU_MATRA or
+                x == HALANTA) for x in syllable])
+
+
+def toggle_matra(syllable):
+    """
+    Change the Laghu syllable to Guru and Guru to Laghu (if possible)
+    """
+    if syllable[-1] in MATRA:
+        index = MATRA.index(syllable[-1])
+        if index in [2, 4, 6, 8]:
+            return syllable[:-1] + MATRA[index-1]
+        if index in [1, 3, 5, 7]:
+            return syllable[:-1] + MATRA[index+1]
+
+    if syllable in SWARA:
+        index = SWARA.index(syllable)
+        if index in [0, 2, 4, 6, 8]:
+            return SWARA[index + 1]
+        if index in [1, 3, 5, 7, 9]:
+            return SWARA[index - 1]
 
 ###############################################################################
 
 
 def matra_to_swara(m):
-    """
-    Convert the Matra to corresponding Swara
-    """
+    """Convert the Matra to corresponding Swara"""
     if m == '':
         return SWARA[0]
 
@@ -252,9 +292,7 @@ def matra_to_swara(m):
 
 
 def swara_to_matra(s):
-    '''
-    Convert a Swara to correponding Matra
-    '''
+    """Convert a Swara to correponding Matra"""
     if s == SWARA[0]:
         return ''
     try:
@@ -376,7 +414,9 @@ def split_varna_word(word, technical=True):
             word_viccheda.append(syllable[0])
             if len(syllable) > 1:
                 word_viccheda.append(syllable[1])
+            # TODO: Will this ever be the case?
             if len(syllable) > 2:
+                logger.debug(f"Long SWARA: {syllable}")
                 word_viccheda.append(syllable[2:])
         elif syllable[0] in VYANJANA:
             word_viccheda.append(syllable[0] + HALANTA)
@@ -387,7 +427,9 @@ def split_varna_word(word, technical=True):
                     word_viccheda.append('-' + SWARA[0])
                 if syllable[1] != HALANTA:
                     word_viccheda.append(syllable[1])
+            # TODO: Will this ever be the case?
             if len(syllable) > 2:
+                logger.debug(f"Long VYANJANA: {syllable}")
                 word_viccheda.append(syllable[2:])
         else:
             word_viccheda.append(syllable)
@@ -473,7 +515,7 @@ def join_varna(viccheda, technical=True):
         Value of the same parameter passed to split_varna_word
 
     Returns
-    -------i
+    -------
     s : str
         Samskrit word
     """

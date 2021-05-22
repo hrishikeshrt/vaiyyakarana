@@ -6,7 +6,7 @@ Created on Fri Jan  1 11:18:04 2021
 @author: Hrishikesh Terdalkar
 
 
-Python Wrapper for Inria Heritage Platform
+Python Interface for Inria Heritage Platform
 
 Can query through web mirror and unix shell
 
@@ -28,17 +28,47 @@ import time
 import random
 import signal
 import logging
-import requests
+import functools
 import subprocess
+import dataclasses
 import urllib.parse
+
+import requests
 
 from bs4 import BeautifulSoup
 
-from logger import setup_logger
+###############################################################################
+# TODO: Do we need to use python-frozendict (PyPI)?
 
-scriptname, _ = os.path.splitext(os.path.basename(__file__))
-setup_logger('heritage', f'{scriptname}.log')
-log = logging.getLogger('heritage')
+
+class frozendict(dict):
+    def __hash__(self):
+        return hash(frozenset(self.items()))
+
+
+def freezeargs(func):
+    """
+    Transform mutable dictionnary arguments into immutable frozen ones
+
+    Useful to be compatible with @cache. Should be added on top of @cache
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        args = tuple([
+            frozendict(arg) if isinstance(arg, dict) else arg
+            for arg in args
+        ])
+        kwargs = {
+            k: frozendict(v) if isinstance(v, dict) else v
+            for k, v in kwargs.items()
+        }
+        return func(*args, **kwargs)
+    for method in ['cache_info', 'cache_clear']:
+        if callable(getattr(func, method, None)):
+            setattr(wrapper, method, getattr(func, method))
+
+    return wrapper
 
 ###############################################################################
 
@@ -79,6 +109,62 @@ HERITAGE_LANG = {
     }
 }
 
+# https://sanskrit.inria.fr/manual.html
+COLOURS = {
+    'deep_sky': 'substantive/adjective forms',  # सुभन्त
+    'red': 'finite verbal forms',  # तिङन्त
+    'lawngreen': 'vocative',
+    'mauve': 'indeclinable forms such as adverbs, conjunctions, prepositions',
+    'light_blue': 'pronominal forms',
+    'yellow': 'initial part of compounds',
+    # Actually, complex compounds with n+1 components appear as a
+    # sequence of n yellow segments denoting stems, followed by a blue
+    # nominal inflected form.
+    'cyan': 'exocentric compound',  # बहुव्रीहि समास
+    # The cyan colour segment may not occur stand-alone,
+    # it is mandatorily preceded by a yellow segment in order to form
+    # an exocentric adjectival compound
+    'lavender': 'first preposition of the compound',  # अव्ययीभाव
+    'magenta': 'invariable form in the compound',  # अव्ययीभाव
+    # There exists yet another variety of compound, the so-called avyayībhāva
+    # "turned into undeclinable".
+    # e.g. निर्मक्षिकम्
+    # Here this input is analysed as a sequence of segments,
+    # first the preposition nis, colored lavender, and then the stem makṣikā,
+    # turned into an invariable form makṣikam, colored magenta.
+    'grey': 'unrecognized',
+    'orange': 'initial part of verbal compounds in periphrastic construction',
+    # Verbal compounds exist, such as the periphrastic perfect construction,
+    # used for secondary conjugations and nominative verbs. It builds a
+    # special stem in -आम्, suffixed by a perfect form of one of the
+    # auxiliaries कृ, अस् and भू.
+    # e.g. First part of कथयाञ्चक्रे
+    # The orange and red segments are mutually linked, thus selecting one
+    # selects automatically the other.
+    # Another periphrastic construction is the inchoative "cvi" verbal
+    # compound. Its left part is a special substantival stem in ī or ū, and
+    # its right part a finite verb form of one of the auxiliaries.
+    # e.g. First part of मृदूभवति , खिलीभूतः etc.
+    # Here, the right part is either red for verbal forms, e.g मृदूभवति
+    # blue for participial forms, like कदर्थीकृतः
+    # or mauve for absolutives and infinitives, like निमित्तीकृत्य
+    'carmin': 'special infinitive form'
+    # e.g. First part of वक्तुकामः
+}
+
+
+###############################################################################
+
+
+@dataclasses.dataclass
+class HeritageAnalysis:
+    pass
+
+
+@dataclasses.dataclass
+class Token:
+    pass
+
 ###############################################################################
 
 
@@ -93,6 +179,7 @@ class HeritageOutput:
     }
 
     def __init__(self, html):
+        self.logger = logging.getLogger(__name__)
         self.html = html
         self.soup = BeautifulSoup(html, 'html.parser')
         self.process()
@@ -122,18 +209,26 @@ class HeritageOutput:
         # Find Relevant Body Children
         self.blocks = self.body.find_all()
 
-    def extract_analysis(self):
-        """Extract analysis from HTML"""
+    def extract_analysis(self, meta=False):
+        """
+        Extract analysis from HTML
+
+        Parameters
+        ----------
+        meta : bool
+            If True, include meta information, i.e, parse options, classes
+            The default is False.
+        """
         if self.title.text != 'Sanskrit Reader Companion':
-            log.error("Invalid output page.")
+            self.logger.error("Invalid output page.")
             return None
 
         hr_blocks = self.html.split('<hr>')
         if len(hr_blocks) < 2:
-            log.error("No solutions found.")
+            self.logger.error("No solutions found.")
             return None
 
-        solutions = []
+        solutions = {}
         for block in hr_blocks[2:]:
             if 'Solution' not in block:
                 break
@@ -142,9 +237,19 @@ class HeritageOutput:
 
             soup = BeautifulSoup(block, 'html.parser')
             first_span = soup.find('span')
+            solution_id = int(first_span.text.split()[1])
 
-            solution['id'] = int(first_span.text.split()[1])
+            solution['id'] = solution_id
             solution['words'] = []
+
+            if meta:
+                parser_url = first_span.find('a')['href']
+                # TODO: Better parsing of options
+                parser_options = dict([
+                    e.split('=')
+                    for e in re.split(r'&amp;|&|;', parser_url.split('?')[1])
+                ])
+                solution['parser_options'] = parser_options
 
             tables = soup.find_all('table')
             for table in tables:
@@ -154,8 +259,16 @@ class HeritageOutput:
                 else:
                     # Inner table contains analysis and it occurs after
                     # the original word
-                    analyses = self.parse_analysis(table.get_text())
-                    word['classes'] = table.get('class', [])
+                    self.logger.debug(table.get_text())
+                    analyses = self.parse_analysis(table)
+                    self.logger.debug(analyses)
+                    css_classes = table.get('class', [])
+                    if meta:
+                        word['classes'] = css_classes
+                    word['category'] = [
+                        COLOURS.get(css_class.split('_back')[0], None)
+                        for css_class in css_classes
+                    ]
                     word_analyses = []
                     for analysis in analyses:
                         word_copy = word.copy()
@@ -163,32 +276,125 @@ class HeritageOutput:
                         word_analyses.append(word_copy)
                     solution['words'].append(word_analyses)
 
-            solutions.append(solution)
+            solutions[solution_id] = solution
         return solutions
 
-    def extract_declensions(self):
+    def extract_parse(self):
+        """Extract parse from HTML"""
+        if self.title.text != 'Sanskrit Reader Assistant':
+            self.logger.error("Invalid output page.")
+            return None
+
+        word_nodes = self.soup.find_all('table', class_='yellow_back')
+        roles = []
+        for word_node in word_nodes:
+            word_text = word_node.get_text().strip()
+            word_row = word_node.find_parent('tr')
+            tables = word_row.find_all('table')
+            # analysis_table = tables[1]
+            # word_id_table = tables[2]
+            semantic_table = tables[3]
+            semantic_rows = semantic_table.find_all('tr')
+            word_roles = [row.get_text() for row in semantic_rows]
+            roles.append({'text': word_text, 'roles': word_roles})
+        return roles
+
+    def extract_declensions(self, headers=True):
         """Extract declensions from HTML"""
-        tab = self.soup.find('table', class_='inflexion')
-        rows = tab.find_all('tr')
+        if self.title.text != 'Sanskrit Grammarian Declension Engine':
+            self.logger.error("Invalid output page.")
+            return None
+        table = self.soup.find('table', class_='inflexion')
+        rows = table.find_all('tr')
         output = []
         for row in rows:
-            cols = [col.get_text().split() for col in row.find_all('th')]
+            cols = [col.get_text(' ').split() for col in row.find_all('th')]
             output.append(cols)
         output = output[:2] + output[3:] + [output[2]]
+        if not headers:
+            output = [row[1:] for row in output[1:]]
         return output
 
+    def extract_conjugations(self, headers=True):
+        """Extract conjugations from HTML"""
+        if self.title.text != 'Sanskrit Grammarian Conjugation Engine':
+            self.logger.error("Invalid output page.")
+            return None
+        tables = self.soup.find_all('table', class_='gris_cent')
+        forms = {}
+        for table in tables:
+            header = table.find('span').get_text()
+            forms[header] = {}
+            inner_tables = table.find_all('table', class_='inflexion')
+
+            for inner_table in inner_tables:
+                rows = inner_table.find_all('tr')
+                output = []
+                for row in rows:
+                    cols = [
+                        col.get_text(' ').split() for col in row.find_all('th')
+                    ]
+                    output.append(cols)
+                forms[header][output[0][0][0]] = output
+
+        return forms
+
+    def extract_sandhi(self):
+        """Extract Sandhi from HTML"""
+        if self.title.text != 'Sanskrit Sandhi Engine':
+            self.logger.error("Invalid output page.")
+            return None
+        pattern = r'\s*([^\s\|]*)\s*\|\s*([^\s=]*)\s*=\s*([^\s]*)\s*'
+        for span in self.body.find_all('span'):
+            match = re.match(pattern, span.get_text(' '), flags=re.DOTALL)
+            if match:
+                return match.group(3)
+
+    def extract_lexicon_entry(self, word_id):
+        """Extract entry from a lexicon"""
+        if 'Monier-Williams Sanskrit-English' not in self.title.text:
+            self.logger.error("Invalid dictionary page.")
+            return None
+        marker = self.soup.find('a', attrs={'name': word_id})
+        parent = marker.find_parent()
+        return self
+        # TODO: complete
+
     @staticmethod
-    def parse_analysis(text):
+    def parse_analysis(table):
         """
         Parse analysis of a single word
         Analysis Format is: [root]{analysis_1 | analysis_2 | ..}
+
+        Parameters
+        ----------
+        table : bs4.element.Tag
+            Valid `table` element
+
+        Returns
+        -------
+        analysies : list
         """
-        pattern = r'\[([^\]]*)\]\{([^\}]*)\}'
-        matches = re.finditer(pattern, text.strip(), flags=re.DOTALL)
+        # pattern = r'\[([^\]]*)\]\{([^\}]*)\}'
+        pattern = r'\[(.*?)\]\{([^\}]*)\}'
+        rows = table.find_all('tr')
         analyses = []
-        for match in matches:
+        for row in rows:
             analysis = {}
-            analysis['root'] = match.group(1)
+            if row is None:
+                analyses.append(analysis)
+                continue
+
+            link = row.find('a')
+            if link is not None:
+                link_parts = link['href'].split('/')[-1].split('#')
+                file_name, word_id = link_parts[0], link_parts[1]
+            else:
+                file_name, word_id = None, None
+
+            match = re.match(pattern, row.get_text().strip(), flags=re.DOTALL)
+            analysis['lexicon'] = (file_name, word_id)
+            analysis['root'] = match.group(1).split()[0].strip()
             analysis['analyses'] = [
                 [abbrev.replace('.', '') for abbrev in an.split()]
                 for an in match.group(2).split('|')
@@ -215,9 +421,17 @@ class HeritagePlatform:
             'shell': 'reader',
             'web': 'sktreader.cgi'
         },
+        'parser': {
+            'shell': 'parser',
+            'web': 'sktparser.cgi'
+        },
         'search': {
             'shell': 'indexer',
             'web': 'sktindex.cgi'
+        },
+        'search_easy': {
+            'shell': 'indexerd',
+            'web': 'sktsearch.cgi'
         },
         'declension': {
             'shell': 'declension',
@@ -230,17 +444,60 @@ class HeritagePlatform:
         'lemma': {
             'shell': 'lemmatizer',
             'web': 'sktlemmatizer.cgi'
+        },
+        'sandhi': {
+            'shell': 'sandhier',
+            'web': 'sktsandhier.cgi'
+        },
+        'user': {
+            'shell': 'user_aid',
+            'web': 'sktuser.cgi'
+        },
+        'interface': {
+            'shell': 'interface',
+            'web': 'sktgraph.cgi'
+        },
+        'dictionary': {
+            'shell': '../MW/',
+            'web': '../../MW/'
         }
     }
+
+    OPTIONS = {
+        'lex': {
+            'description': 'Lexicon',
+            'values': {
+                'MW': 'Monier-Williams Dictionary (English)',
+                'SH': 'Sanskrit Heritage Dictionary (French)'
+            },
+            'default': 'MW'
+        },
+        'font': {
+            'description': 'Font for Sanskrit output',
+            'values': {
+                'deva': 'Devanagari',
+                'roma': 'Roman (IAST)'
+            },
+            'default': 'deva'
+        },
+        't': {
+            'description': 'Internal Transliteration Scheme',
+            'values': {
+                'VH': 'Velthuis'
+            },
+            'default': 'VH'
+        }
+    }
+
     METHODS = ['shell', 'web']
 
-    def __init__(self, repo_dir, base_url=None, method='shell', font='deva'):
+    def __init__(self, base_dir='', base_url=None, method='shell', **kwargs):
         """
         Initialize Heritage Class
 
         Parameters
         ----------
-        repo_dir : str
+        base_dir : str
             Path to the Heritage_Platform repository.
             The directory should contain 'ML' sub-directory,
             which further contains the scripts
@@ -255,39 +512,55 @@ class HeritagePlatform:
             Possible values are, 'shell' and 'web'
             The default is 'shell'.
         """
+        self.logger = logging.getLogger(__name__)
         self.base_url = self.INRIA_URL if base_url is None else base_url
-        self.base_dir = repo_dir
+        self.base_dir = base_dir
         self.scripts_dir = os.path.join(self.base_dir, 'ML')
-        self.method = None
-        self.font = None
 
+        self.method = None
         self.set_method(method)
-        self.set_font(font)
+
+        if not self.valid_installation():
+            self.logger.warning("Heritage Platform installation not found.")
+            self.base_dir = ''
+            self.scripts_dir = ''
+            self.set_method('web')
+
+        self.options = {}
+        for option in self.OPTIONS:
+            self.options[option] = self.OPTIONS[option]['default']
 
     ###########################################################################
     # Utilities (Actions)
 
-    def get_analysis(self, input_text, word=True):
+    def get_analysis(self, input_text,
+                     sentence=True, unsandhied=False, meta=False):
         """
         Utility to obtain morphological analyses using Reader Companion
+
+        Parameters
+        ----------
 
         Returns
         -------
         result : list
             List of valid morphological analyses
         """
-        opt_st = 'f' if word else 't'
+        opt_st = 't' if sentence else 'f'
+        opt_us = 't' if unsandhied else 'f'
+
         options = {
-            'lex': 'MW',   # Lexicon (MW) Monier-Williams (SH) Heritage
+            'lex': self.get_lexicon(),
             'cache': 't',  # Use Cache (t)rue, (f)alse
             'st': opt_st,  # Sentence (t)rue, Word (f)alse
-            'us': 't',     # Unsandhied (t)rue, (f)alse
+            'us': opt_us,  # Unsandhied (t)rue, (f)alse
                            # if 'us' is 'f', "ca eva" is parsed as "ca_eva",
                            # "tathā eva" as "tathā_eva" etc.
             'cp': 't',     # Full Parser Strength (t)rue, (f)alse
-            't': 'VH',     # Transliteration Scheme (Must be VH)
-            'mode': 'p',   # Parse Mode (p)arse, (g)raph, (s)ummary
-            'font': self.font,
+            't': self.get_option('t'),
+            'mode': 'p',   # Parse Mode (p)arsing, (t)agging
+                           # Tagging does not prune any solutions
+            'font': self.get_font(),
                            # Output Display Font (deva)nagari (roma)n
             'topic': '',
             'corpmode': '',
@@ -296,42 +569,110 @@ class HeritagePlatform:
             'text': self.prepare_input(input_text)
         }
         result = self.get_result('reader', options)
-        output = HeritageOutput(result)
+        if result is None:
+            return None
 
-        return output.extract_analysis()
+        output = HeritageOutput(result)
+        # return output
+        return output.extract_analysis(meta=meta)
 
     # ----------------------------------------------------------------------- #
 
-    def search_lexicon(self, word, lexicon='MW'):
+    def get_parse(self, input_text, solution_id=None, sentence=True,
+                  unsandhied=False):
         """
-        Search a word in the dictionary
-
-        Parameters
-        ----------
-        word : str
-            Sanskrit Word to search (in Devanagari)
-        lexicon : str, optional
-            Lexicon to search the word in.
-            Possible values are,
-                * MW: Monier-Williams Dictionary
-                * SH: Heritage Dictionary
-            The default is 'MW'.
+        Utility to obtain morphological analyses using Reader Companion
 
         Returns
         -------
-        matches : list
-            List of matches.
+        result : list
+            List of valid morphological analyses
         """
+
+        solutions = self.get_analysis(
+            input_text, sentence=sentence, unsandhied=unsandhied, meta=True
+        )
+
+        # If solution ID not provided, use the first solution
+        if solution_id is None:
+            if not solutions:
+                return None  # TODO: Change this to something ?
+
+        solution_id = next(iter(solutions))
+
+        # No need to manually give options again, since it does it for us
+        # Internally parser is a re-run of reader until a specific solution
+        # Remove following block in later versions
+
+        # opt_st = 't' if sentence else 'f'
+        # opt_us = 't' if unsandhied else 'f'
+
+        # options = {
+        #     'lex': self.get_lexicon(),
+        #     'cache': 't',  # Use Cache (t)rue, (f)alse
+        #     'st': opt_st,  # Sentence (t)rue, Word (f)alse
+        #     'us': opt_us,  # Unsandhied (t)rue, (f)alse
+        #                    # if 'us' is 'f', "ca eva" is parsed as "ca_eva",
+        #                    # "tathā eva" as "tathā_eva" etc.
+        #     'cp': 't',     # Full Parser Strength (t)rue, (f)alse
+        #     't': self.get_option('t'),
+        #     'mode': 'p',   # Parse Mode (p)arse, (g)raph, (s)ummary
+        #     'font': self.get_font(),
+        #                    # Output Display Font (deva)nagari (roma)n
+        #     'topic': '',
+        #     'n': solution_id,
+        #     'abs': 'f',     # TODO: Find out what this does
+        #     'text': self.prepare_input(input_text)
+        # }
+
+        solution = solutions[solution_id]
+        options = solution['parser_options']
+        result = self.get_result('parser', options)
+        output = HeritageOutput(result)
+        roles = output.extract_parse()
+        solution['roles'] = roles
+
+        return solution
+
+    # ----------------------------------------------------------------------- #
+
+    def sandhi(self, word_1, word_2, mode='internal'):
+        """
+        Join two words by forming a Sandhi
+
+        Parameters
+        ----------
+        word_1 : str
+            The first (left) word in the Sandhi
+        word_2 : str
+            The second (right) word in the Sandhi
+        mode : str, optional
+            Indicates whether the words join to form a single word or not
+            Possible values are,
+            * internal
+            * external
+            The default is 'internal'.
+
+        Returns
+        -------
+        sandhi : str
+            String obtained by forming the Sandhi
+        """
+        if mode not in ['internal', 'external']:
+            self.logger.warning(f"Invalid mode: '{mode}'")
+
         options = {
-            'lex': lexicon,
-            't': 'VH',
-            'q': self.prepare_input(word),
-            'font': self.font
+            'lex': self.get_lexicon(),
+            'l': self.prepare_input(word_1),
+            'r': self.prepare_input(word_2),
+            't': self.get_option('t'),
+            'k': mode,
+            'font': self.get_font()
         }
-        result = self.get_result('search', options)
+        result = self.get_result('sandhi', options)
         output = HeritageOutput(result)
 
-        return output
+        return output.extract_sandhi()
 
     # ----------------------------------------------------------------------- #
 
@@ -356,45 +697,103 @@ class HeritagePlatform:
             List of matches.
         """
         options = {
-            't': 'VH',
+            't': self.get_option('t'),
             'q': self.prepare_input(word),
             'c': category,
-            'font': self.font
+            'font': self.get_font()
         }
         result = self.get_result('lemma', options)
         output = HeritageOutput(result)
 
+        # TODO: Output Parsing
         return output
 
     # ----------------------------------------------------------------------- #
 
-    def get_declensions(self, word, gender, lexicon='MW'):
+    def get_declensions(self, word, gender, headers=True, lexicon=None):
         options = {
-            'lex': lexicon,
-            't': 'VH',
+            'lex': self.get_lexicon(),
+            't': self.get_option('t'),
             'q': self.prepare_input(word),
             'g': self.identify_gender(gender),
-            'font': self.font
+            'font': self.get_font()
         }
         result = self.get_result('declension', options)
         output = HeritageOutput(result)
 
-        return output.extract_declensions()
+        return output.extract_declensions(headers=headers)
 
     # ----------------------------------------------------------------------- #
 
-    def get_conjugations(self, word, gana, lexicon='MW'):
+    def get_conjugations(self, word, gana, lexicon=None):
         options = {
-            'lex': lexicon,
-            't': 'VH',
+            'lex': self.get_lexicon(),
+            't': self.get_option('t'),
             'q': self.prepare_input(word),
             'c': gana,
-            'font': self.font
+            'font': self.get_font()
         }
         result = self.get_result('conjugation', options)
         output = HeritageOutput(result)
 
+        # TODO: Output Parsing
         return output
+
+    # ----------------------------------------------------------------------- #
+
+    def search_lexicon(self, word, lexicon=None):
+        """
+        Search a word in the dictionary
+
+        Parameters
+        ----------
+        word : str
+            Sanskrit Word to search (in Devanagari)
+        lexicon : str, optional
+            Lexicon to search the word in.
+            Possible values are,
+                * MW: Monier-Williams Dictionary
+                * SH: Heritage Dictionary
+            The default is 'MW'.
+
+        Returns
+        -------
+        matches : list
+            List of matches.
+        """
+        options = {
+            'lex': self.get_lexicon(),
+            't': self.get_option('t'),
+            'q': self.prepare_input(word),
+            'font': self.get_font()
+        }
+        result = self.get_result('search', options)
+        output = HeritageOutput(result)
+
+        # TODO: Output Parsing
+        # TODO: Currently not using the lexicon keyword argument
+        # Is there any use for that argument? For this function?
+        return output
+
+    ###########################################################################
+
+    @functools.lru_cache(maxsize=None)
+    def get_lexicon_entry(self, file_name, word_id):
+        if self.method == 'shell':
+            path = self.get_path('dictionary')
+            file_path = os.path.join(path, file_name)
+            with open(file_path, encoding='utf-8') as f:
+                content = f.read()
+        elif self.method == 'web':
+            url = self.get_url('dictionary')
+            query_url = f'{url}{file_name}#{word_id}'
+            content = self.__get(query_url)
+        else:
+            self.logger.error(f"Invalid method: '{self.method}'.")
+            return
+
+        output = HeritageOutput(content)
+        return output.extract_lexicon_entry(word_id)
 
     ###########################################################################
     # Fetch Result through Web or Shell
@@ -421,20 +820,36 @@ class HeritagePlatform:
             Result (HTML) obtained
         """
 
-        query_string = '&'.join([f'{k}={v}' for k, v in options.items()])
+        query_string = self.build_query_string(options)
         query_url = f'{url}?{query_string}'
+        return self.__get(query_url, attempts=attempts)
 
+    @functools.lru_cache(maxsize=None)
+    def __get(self, query_url, attempts=3):
+        """
+        Query web with exponential-backoff
+
+        Parameters
+        ----------
+        query_url : str
+            URL to query
+        attempts : int, optional
+            Number of attempts for the exponential backoff
+            The default is 3.
+
+        Returns
+        -------
+        str
+            Result (HTML) obtained
+        """
         # query with exponential-backoff
         r = requests.get(query_url)
-
         if r.status_code != 200:
             for n in range(attempts):
                 if n == 0:
-                    print(f"QUERY_URL: {query_url}")
-                    log.warning(f"URL: {query_url}")
+                    self.logger.warning(f"URL: {query_url}")
 
-                log.warning(f"Status Code: {r.status_code} (n = {n})")
-                print(f"Status Code: {r.status_code}. (n = {n})")
+                self.logger.warning(f"Status Code: {r.status_code} (n = {n})")
 
                 fn = n
                 backoff = (2 ** fn) + random.random()
@@ -442,18 +857,17 @@ class HeritagePlatform:
                 r = requests.get(query_url)
 
                 if r.status_code == 200:
-                    log.info(f"Resolved! (n = {n})")
-                    print(f"Resolved! (n = {n})")
+                    self.logger.info(f"Resolved! (n = {n})")
                     break
             else:
-                log.warning(f"Failed on '{query_url}' after {n} attempts.")
-                print(f"Failed on '{query_url}' after {n} attempts.")
-
+                self.logger.warning(
+                    f"Failed on '{query_url}' after {n} attempts."
+                )
         return r.text
 
     # ----------------------------------------------------------------------- #
 
-    def get_result_from_shell(self, path, options, timeout=15):
+    def get_result_from_shell(self, path, options, timeout=30):
         """
         Get results from the Heritage Platform's local installation via shell
 
@@ -466,15 +880,37 @@ class HeritagePlatform:
             Valid options for the script
         timeout : int, optional
             Timeout in seconds, after which the function will abort.
-            The default is 15.
+            The default is 30.
 
         Returns
         -------
         result : str
             Result (HTML) obtained
         """
-        query_string = '&'.join([f'{k}={v}' for k, v in options.items()])
-        environment = {'QUERY_STRING': query_string}
+        query_string = self.build_query_string(options)
+        environment = frozendict({'QUERY_STRING': query_string})
+        return self.__run(path, environment, timeout=timeout)
+
+    @functools.lru_cache(maxsize=None)
+    def __run(self, path, environment, timeout=30):
+        """
+        Get results from shell through a subprocess call
+
+        Parameters
+        ----------
+        path : str
+            Path to the executable script
+        environment : dict
+            Environment variables to set
+        timeout : int, optional
+            Timeout in seconds, after which the function will abort.
+            The default is 30.
+
+        Returns
+        -------
+        result : str
+            Result (HTML) obtained
+        """
         alarm(timeout)
         try:
             result_header = 'Content-Type: text/html\n\n'
@@ -483,7 +919,7 @@ class HeritagePlatform:
             ).decode('utf-8')
             result = result[len(result_header):]
         except TimeoutError:
-            log.error("TimeoutError")
+            self.logger.error("TimeoutError")
             return None
         alarm(0)
         return result
@@ -517,9 +953,13 @@ class HeritagePlatform:
         if self.method == 'web':
             url = self.get_url(action)
             return self.get_result_from_web(url, options, *args, **kwargs)
-        log.error(f"Invalid method: '{self.method}'.")
+        self.logger.error(f"Invalid method: '{self.method}'.")
 
     ###########################################################################
+
+    def get_method(self):
+        """Get the current method"""
+        return self.method
 
     def set_method(self, method):
         """
@@ -530,26 +970,69 @@ class HeritagePlatform:
         if method.lower() in self.METHODS:
             self.method = method.lower()
             return True
-        log.warning(f"Invalid method: '{method}'")
+        self.logger.warning(f"Invalid method: '{method}'")
         if self.method is None:
             self.method = 'shell'
         return False
 
-    def set_font(self, font):
-        """
-        Set the font for Sanskrit output
+    # ----------------------------------------------------------------------- #
 
-        Valid fonts are,
-            * deva: Devanagari
-            * roma: Roman (IAST)
+    def get_option(self, opt_name):
+        """Get the value of global options"""
+        if opt_name not in self.OPTIONS:
+            self.logger.warning("Invalid option: '{opt_name}'")
+            return None
+        return self.options.get(opt_name, None)
+
+    def set_option(self, opt_name, opt_value):
+        """Set global options
+
+        Any of these options, if expected by a particular utility from the
+        Heritage Platform, will be directly used in the QUERY_STRING while
+        fetching the output from that utility
+
+        class variable OPTIONS stores the default values for options
+
+        Each option contains,
+        - a 'description' of the option
+        - 'values' it can take (and descriptions of those values)
+        - 'default' value
+
         """
-        if font.lower() in ['deva', 'roma']:
-            self.font = font.lower()
+
+        opt_name = opt_name.lower()
+        if opt_name not in self.OPTIONS:
+            self.logger.warning("Invalid option: '{opt_name}'")
+            return False
+
+        if opt_value in self.OPTIONS[opt_name]['values']:
+            self.options[opt_name] = opt_value
             return True
-        log.warning(f"Invalid font: '{font}'")
-        if self.font is None:
-            self.font = 'deva'
+
+        self.logger.warning(
+            f"Invalid value for option '{opt_name}': '{opt_value}'"
+        )
         return False
+
+    # ----------------------------------------------------------------------- #
+
+    def get_font(self):
+        """Get current font for Sanskrit Output"""
+        return self.get_option('font')
+
+    def set_font(self, font):
+        """Set font for Sanskrit output"""
+        return self.set_option('font', font.lower())
+
+    # ----------------------------------------------------------------------- #
+
+    def get_lexicon(self):
+        """Get current lexicon"""
+        return self.get_option('lex')
+
+    def set_lexicon(self, lexicon):
+        """Set lexicon"""
+        return self.set_option('lex', lexicon.upper())
 
     ###########################################################################
     # URL or Path Builders
@@ -564,12 +1047,20 @@ class HeritagePlatform:
 
     ###########################################################################
 
+    def valid_installation(self):
+        """Check if the Heritage Platform installation exists"""
+        # TODO: A better check may be checking for the required executables
+        # * If the file exists
+        # * If the file is executable
+        return os.path.isdir(self.scripts_dir)
+
+    ###########################################################################
+
     def __repr__(self):
         params = {
             'repository': self.base_dir,
             'url': self.base_url,
             'method': self.method,
-            'font': self.font
         }
         repr_params = ', '.join([f'{k}="{v}"' for k, v in params.items()])
         return f'{self.__class__.__name__}({repr_params})'
@@ -583,6 +1074,11 @@ class HeritagePlatform:
             * Join words by '+' instead of by whitespaces
         """
         return '+'.join(self.dn2vh(input_text).split())
+
+    @staticmethod
+    def build_query_string(options):
+        """Build QUERY_STRING"""
+        return '&'.join([f'{k}={v}' for k, v in options.items()])
 
     @staticmethod
     def identify_gender(gender):
@@ -668,3 +1164,10 @@ class HeritagePlatform:
         return output
 
 ###############################################################################
+
+
+if __name__ == '__main__':
+    home_dir = os.path.expanduser('~')
+    heritage_dir = os.path.join(home_dir, 'git', 'heritage',
+                                'Heritage_Platform')
+    SH = HeritagePlatform(heritage_dir)
