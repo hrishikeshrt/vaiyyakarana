@@ -109,9 +109,10 @@ PURUSHA = ['प्रथमपुरुषः', 'मध्यमपुरुष�
 
 
 class DhatuPatha:
-    SEARCH_KEYS = ['dhatu', 'swara', 'artha_english', 'english', 'artha']
-    DISPLAY_KEYS = ['baseindex', 'dhatu', 'swara', 'english', 'gana', 'pada',
-                    'artha', 'tags', 'karma', 'settva', 'artha_english']
+    SEARCH_KEYS = ['dhatu', 'aupadeshik', 'artha_english', 'english', 'artha']
+    DISPLAY_KEYS = ['baseindex', 'dhatu', 'aupadeshik', 'english',
+                    'gana', 'pada', 'artha', 'tags',
+                    'karma', 'settva', 'artha_english']
 
     def __init__(self, dhatu_file, search_keys=None, display_keys=None):
         self.search_keys = search_keys or self.SEARCH_KEYS
@@ -351,7 +352,7 @@ class DhatuPathaShell(BasicShell):
     def show_forms(dhatu, dhatu_forms):
         output = [
             '+' + '-' * 80 + '+',
-            (f"{dhatu['dhatu']} ({dhatu['swara']}), "
+            (f"{dhatu['dhatu']} ({dhatu['aupadeshik']}), "
              f"{dhatu['artha']}, {dhatu['artha_english']}"),
             (f"{VALUES_LANG['gana'][dhatu['gana']]}, "
              f"{VALUES_LANG['pada'][dhatu['pada']]}, "

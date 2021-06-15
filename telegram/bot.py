@@ -26,7 +26,7 @@ import samskrit_text as skt
 Dhatu = dhatupatha.DhatuPatha(
     config.dhatu_file,
     display_keys=[
-        'baseindex', 'dhatu', 'swara', 'gana', 'pada', 'artha', 'karma',
+        'baseindex', 'dhatu', 'aupadeshik', 'gana', 'pada', 'artha', 'karma',
         'artha_english'
     ]
 )
@@ -159,7 +159,7 @@ def format_word_forms(rupaani):
 
 def format_verb_forms(dhatu, rupaani, full_flag):
     output = [
-        (f"{dhatu['dhatu']} ({dhatu['swara']}), "
+        (f"{dhatu['dhatu']} ({dhatu['aupadeshik']}), "
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
         (f"{dhatupatha.VALUES_LANG['gana'][dhatu['gana']]}, "
          f"{dhatupatha.VALUES_LANG['pada'][dhatu['pada']]}, "),
