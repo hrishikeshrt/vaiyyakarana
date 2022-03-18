@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Nov 27 19:04:19 2020
-
-@author: Hrishikesh Terdalkar
+Telegram Vyakarana Bot
 """
 
 import os
@@ -22,6 +20,7 @@ import config
 import samskrit_text as skt
 
 ###############################################################################
+# Utilities
 
 Dhatu = dhatupatha.DhatuPatha(
     config.dhatu_file,
@@ -51,6 +50,7 @@ if not os.path.isdir(config.suggestion_dir):
     os.makedirs(config.suggestion_dir)
 
 ###############################################################################
+# Bot Client
 
 bot = TelegramClient(
     'Bot Session',
@@ -740,71 +740,6 @@ async def give_suggestions(event):
     with open(user_file, 'a') as f:
         f.write("\n".join([f"--- {datetime.datetime.now()} ---", message, ""]))
     await event.reply("समीचीना सूचना। धन्यवादः।")
-
-###############################################################################
-# Deprecated Functionality
-
-
-def format_word_forms_old(shabda, rupaani):
-    """Deprecated"""
-    output = [
-        (f"**{shabda['word']}** ({shabda['end']}) "
-         f"({shabdapatha.VALUES_LANG['linga'][shabda['linga']]})"),
-        '+' + '-' * 60 + '+',
-    ]
-    for idx, forms in enumerate(rupaani):
-        output.append(f"**{shabdapatha.VIBHAKTI[idx]}**: {forms}")
-    return '\n'.join(output)
-
-
-@bot.on(events.NewMessage(pattern='^/old_shabda'))
-async def search_word_old(event):
-    """Deprecated"""
-    global transliteration_scheme
-    global transliteration_config
-
-    search_key = ' '.join(event.text.split()[1:])
-    sender_id = event.sender.id
-
-    # print(f"WORDSEARCH: {search_key}")
-
-    if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दः/ शब्दरूपम्')
-    else:
-        search_key = sanscript.transliterate(
-            search_key,
-            get_user_scheme(sender_id),
-            transliteration_config['internal']
-        )
-        # print(Shabda.search(search_key))
-        matches = [
-            format_word_match(match)  # old formatting function was removed
-            for match in Shabda.search(search_key)
-        ]
-        if not matches:
-            await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
-        else:
-            for match in matches:
-                keyboard = [[
-                    Button.inline(
-                        'रूपं दर्शयतु', data=f'wordsearch_{match[1]}'
-                    )
-                ]]
-                await event.respond(match[0], buttons=keyboard)
-
-
-@bot.on(events.NewMessage(pattern='^/old_shabdarupa'))
-async def show_word_forms_old(event):
-    """Deprecated"""
-    shabda_idx = Shabda.validate_index(' '.join(event.text.split()[1:]))
-    if shabda_idx:
-        # print(f"WORDINDEX: {shabda_idx}")
-        shabda = Shabda.get(shabda_idx)
-        rupaani = Shabda.get_forms(shabda_idx)
-        await event.respond(format_word_forms_old(shabda, rupaani))
-    else:
-        # print(f"INVALID_WORDINDEX: {shabda_idx}")
-        await event.reply("कृपया शब्दक्रमाङ्कं लिखतु।")
 
 
 ###############################################################################
