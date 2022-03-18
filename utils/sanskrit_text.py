@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Created on Tue Apr 17 22:20:39 2018
-Updated on Thu Oct 31 23:43:34 2020
+Updated on Wed Jun 30 16:19:29 2021
 
 @author: Hrishikesh Terdalkar
 """
@@ -143,26 +143,45 @@ MAAHESHWARA_SUTRA = [
     ['ह', 'ल्']
 ]
 
+# --------------------------------------------------------------------------- #
+
 MAAHESHWARA_KRAMA = [varna for sutra in MAAHESHWARA_SUTRA for varna in sutra]
+
+# --------------------------------------------------------------------------- #
+
+MAAHESHWARA_IDX = defaultdict(list)
+
+idx = 0
+for _sutra_idx, sutra in enumerate(MAAHESHWARA_SUTRA):
+    for _internal_idx, varna in enumerate(sutra):
+        if HALANTA in varna:
+            _idx = -1
+        else:
+            _idx = idx
+            idx += 1
+        MAAHESHWARA_IDX[varna].append((_sutra_idx, _internal_idx, _idx))
 
 ###############################################################################
 
 
 def form_pratyaahaara(letters):
-    varna_idx = defaultdict(list)
-    subtract = 0
+    """Form a pratyaahaara from a list of letters"""
+    varna_idx = []
+    ignored = []
 
-    for idx, varna in enumerate(MAAHESHWARA_KRAMA):
-        if HALANTA in varna:
-            subtract += 1
+    for varna in letters:
+        if varna in MAAHESHWARA_IDX and HALANTA not in varna:
+            varna_idx.append(MAAHESHWARA_IDX[varna])
+        else:
+            ignored.append(varna)
 
-        if varna in letters:
-            varna_idx[varna].append((idx - subtract, idx))
+    if ignored:
+        logger.info(f"Ignored letters: {ignored}")
 
-    varna_idxs = list(product(*varna_idx.values()))
-
+    varna_idxs = product(*varna_idx)
     for v_idx in varna_idxs:
-        _v_idx = sorted([w[0] for w in v_idx])
+        v_idx = sorted(v_idx, key=lambda x: x[2])
+        _v_idx = [w[2] for w in v_idx]
         if _v_idx != list(range(_v_idx[0], _v_idx[-1] + 1)):
             continue
         else:
@@ -171,17 +190,20 @@ def form_pratyaahaara(letters):
         logger.warning("Cannot form a pratyaahara due to discontinuity.")
         return None
 
-    l_idx = [w[1] for w in v_idx]
-    if HALANTA not in MAAHESHWARA_KRAMA[max(l_idx) + 1]:
+    _aadi_idx = v_idx[0]
+    _pre_antya_idx = v_idx[-1]
+
+    if _pre_antya_idx[1] != len(MAAHESHWARA_SUTRA[_pre_antya_idx[0]]) - 2:
         logger.warning("Cannot form a pratyaahara due to end position.")
         return None
 
-    aadi = MAAHESHWARA_KRAMA[min(l_idx)]
-    antya = MAAHESHWARA_KRAMA[max(l_idx) + 1]
+    aadi = MAAHESHWARA_SUTRA[_aadi_idx[0]][_aadi_idx[1]]
+    antya = MAAHESHWARA_SUTRA[_pre_antya_idx[0]][-1]
     return f'{aadi}{antya}'
 
 
 def resolve_pratyaahaara(pratyaahaara):
+    """Resolve pratyaahaara"""
     aadi = pratyaahaara[0]
     antya = pratyaahaara[1:]
 
@@ -191,8 +213,6 @@ def resolve_pratyaahaara(pratyaahaara):
     for idx, varna in enumerate(MAAHESHWARA_KRAMA):
         if varna == aadi:
             possible_starts.append(idx)
-
-    for idx, varna in enumerate(MAAHESHWARA_KRAMA):
         if varna == antya:
             possible_ends.append(idx)
 
@@ -304,10 +324,8 @@ def swara_to_matra(s):
 ###############################################################################
 
 
-def get_anunasik(ch):
-    """
-    Get appropriate anunasik from the character's group
-    """
+def get_anunaasika(ch):
+    """Get appropriate anunasik from the character's group"""
     MA = AUSHTHYA[4]
     if ch == '':
         return MA
@@ -328,7 +346,7 @@ def fix_anuswara(text):
             char = text[idx]
             next_char = text[idx + 1]
             if char == ANUSWARA and next_char in VARGIYA:
-                anunasika = get_anunasik(next_char)
+                anunasika = get_anunaasika(next_char)
                 output_chars.append(anunasika)
                 output_chars.append(HALANTA)
             else:
@@ -446,7 +464,7 @@ def split_varna_word(word, technical=True):
             #     next_ch = ''
             #     if i < len(word_viccheda) - 1:
             #         next_ch = word_viccheda[i+1][0]
-            #     nasal = get_anunasik(next_ch)
+            #     nasal = get_anunaasika(next_ch)
             #     if nasal != ANUSWARA:
             #         nasal += HALANTA
             #     real_word_viccheda.append(nasal)
@@ -568,98 +586,174 @@ def join_varna(viccheda, technical=True):
 
     return ''.join(word)
 
+
 ###############################################################################
 
 ###############################################################################
-# Uccharana Sthaana Module
+# Ucchaarana Sthaana Module
 # ------------------------
 
-
-STHAANA_NAMES = {
-    'K': 'कण्ठः',
-    'T': 'तालु',
-    'M': 'मूर्धा',
-    'D': 'दन्ताः',
-    'O': 'ओष्ठौ',
-    'N': 'नासिका',
-    'KT': 'कण्ठतालु',
-    'KO': 'कण्ठौष्ठम्',
-    'DO': 'दन्तौष्ठम्',
-    'JM': 'जिह्वामूलम्'
+STHAANA = {
+    'S_K': ['अ', 'आ'] + KANTHYA + ['ह'] + [VISARGA],
+    'S_T': ['इ', 'ई'] + TALAVYA + ['य', 'श'],
+    'S_M': ['ऋ', 'ॠ'] + MURDHANYA + ['र', 'ष'],
+    'S_D': ['ऌ', 'ॡ'] + DANTYA + ['ल', 'स'],
+    'S_O': ['उ', 'ऊ'] + AUSHTHYA + [UPADHMANIYA],
+    'S_N': VARGA_PANCHAMA + [ANUSWARA],
+    'S_KT': ['ए', 'ऐ'],
+    'S_KO': ['ओ', 'औ'],
+    'S_DO': ['व'],
+    'S_JM': [JIHVAAMULIYA]
 }
 
-STHAANA = {
-    'K': ['अ', 'आ'] + KANTHYA + ['ह'] + [VISARGA],
-    'T': ['इ', 'ई'] + TALAVYA + ['य', 'श'],
-    'M': ['ऋ', 'ॠ'] + MURDHANYA + ['र', 'ष'],
-    'D': ['ऌ', 'ॡ'] + DANTYA + ['ल', 'स'],
-    'O': ['उ', 'ऊ'] + AUSHTHYA + [UPADHMANIYA],
-    'N': VARGA_PANCHAMA + [ANUSWARA],
-    'KT': ['ए', 'ऐ'],
-    'KO': ['ओ', 'औ'],
-    'DO': ['व'],
-    'JM': [JIHVAAMULIYA]
+STHAANA_NAMES = {
+    'S_K': 'कण्ठः',
+    'S_T': 'तालु',
+    'S_M': 'मूर्धा',
+    'S_D': 'दन्ताः',
+    'S_O': 'ओष्ठौ',
+    'S_N': 'नासिका',
+    'S_KT': 'कण्ठतालु',
+    'S_KO': 'कण्ठौष्ठम्',
+    'S_DO': 'दन्तौष्ठम्',
+    'S_JM': 'जिह्वामूलम्'
 }
 
 ###############################################################################
 
 AABHYANTARA = {
-    'SP': VARGIYA,
-    'ISP': ANTAHSTHA,
-    'IVV': USHMA + [JIHVAAMULIYA, UPADHMANIYA],
-    'VV': SWARA[1:] + [CHANDRABINDU, ANUSWARA, VISARGA],
-    'SV': SWARA[:1]
+    'A_SP': VARGIYA,
+    'A_ISP': ANTAHSTHA,
+    'A_IVVT': USHMA + [JIHVAAMULIYA, UPADHMANIYA],
+    'A_VVT': SWARA[1:] + [CHANDRABINDU, ANUSWARA, VISARGA],
+    'A_SVT': SWARA[:1]
 }
 
 AABHYANTARA_NAMES = {
-    'SP': 'स्पृष्टः',
-    'ISP': 'ईषत्स्पृष्टः',
-    'IVV': 'ईषद्विवृतः',
-    'VV': 'विवृतः',
-    'SV': 'संवृतः'
+    'A_SP': 'स्पृष्टः',
+    'A_ISP': 'ईषत्स्पृष्टः',
+    'A_IVVT': 'ईषद्विवृतः',
+    'A_VVT': 'विवृतः',
+    'A_SVT': 'संवृतः'
 }
 
 ###############################################################################
 
 BAAHYA = {
-    'VV': resolve_pratyaahaara('खर्')[0],
-    'SV': resolve_pratyaahaara('हश्')[0],
-    'SH': resolve_pratyaahaara('खर्')[0],
-    'N': resolve_pratyaahaara('हश्')[0],
-    'GH': resolve_pratyaahaara('हश्')[0],
-    'AGH': resolve_pratyaahaara('खर्')[0],
-    'AP': (
+    'B_VVR': resolve_pratyaahaara('खर्')[0],
+    'B_SVR': resolve_pratyaahaara('हश्')[0] + SWARA,
+    'B_SW': resolve_pratyaahaara('खर्')[0],
+    'B_ND': resolve_pratyaahaara('हश्')[0] + SWARA,
+    'B_GH': resolve_pratyaahaara('हश्')[0] + SWARA,
+    'B_AGH': resolve_pratyaahaara('खर्')[0],
+    'B_AP': (
         VARGA_PRATHAMA + VARGA_TRITIYA + VARGA_PANCHAMA +
         resolve_pratyaahaara('यण्')[0]
-    ) + [CHANDRABINDU, ANUSWARA],
-    'MP': (
-        VARGA_DWITIYA + VARGA_CHATURTHA + resolve_pratyaahaara('शल्')[0]
+    ) + SWARA + [CHANDRABINDU, ANUSWARA],
+    'B_MP': (
+        VARGA_DWITIYA + VARGA_CHATURTHA +
+        resolve_pratyaahaara('शल्')[0]
     ) + [VISARGA, JIHVAAMULIYA, UPADHMANIYA],
-    'U': SWARA,
-    'ANU': [s + ANUDATTA for s in SWARA],
-    'SWA': [s + SWARITA for s in SWARA]
+    'B_U': SWARA,
+    'B_ANU': [s + ANUDATTA for s in SWARA],
+    'B_SWA': [s + SWARITA for s in SWARA]
 }
 
 BAAHYA_NAMES = {
-    'VV': 'विवारः',
-    'SV': 'संवारः',
-    'SH': 'श्वासः',
-    'N': 'नादः',
-    'GH': 'घोषः',
-    'AGH': 'अघोषः',
-    'AP': 'अल्पप्राणः',
-    'MP': 'महाप्राणः',
-    'U': 'उदात्तः',
-    'ANU': 'अनुदात्तः',
-    'SWA': 'स्वरितः'
+    'B_VVR': 'विवारः',
+    'B_SVR': 'संवारः',
+    'B_SW': 'श्वासः',
+    'B_ND': 'नादः',
+    'B_GH': 'घोषः',
+    'B_AGH': 'अघोषः',
+    'B_AP': 'अल्पप्राणः',
+    'B_MP': 'महाप्राणः',
+    'B_U': 'उदात्तः',
+    'B_ANU': 'अनुदात्तः',
+    'B_SWA': 'स्वरितः'
 }
+
+###############################################################################
+
+UCCHAARANA = dict(**STHAANA, **AABHYANTARA, **BAAHYA)
+UCCHAARANA_NAMES = dict(**STHAANA_NAMES, **AABHYANTARA_NAMES, **BAAHYA_NAMES)
+
+###############################################################################
+
+
+def get_ucchaarana_vector(letter, abbrev=False):
+    """
+    Get ucchaarana sthaana and prayatna based vector of a letter
+
+    Parameters
+    ----------
+    letter : str
+        Samskrit letter
+    abbrev : bool
+        If True,
+            The output will contain English abbreviations
+        Otherwise,
+            The output will contain Samskrit names
+        The default is False.
+
+    Returns
+    -------
+    vector : dict
+        one-hot vector indicating utpatti sthaana, aabhyantara prayatna and
+        baahya prayatna of a letter
+    """
+    varna = letter.replace(HALANTA, '') if letter.endswith(HALANTA) else letter
+    if abbrev:
+        def ucchaarana_name(s):
+            return s
+    else:
+        def ucchaarana_name(s):
+            return UCCHAARANA_NAMES[s]
+
+    vector = {ucchaarana_name(k): 0 for k in UCCHAARANA}
+    for s, varna_list in UCCHAARANA.items():
+        if varna in varna_list:
+            vector[ucchaarana_name(s)] = 1
+
+    return vector
+
+
+def get_ucchaarana_vectors(word, abbrev=False):
+    """
+    Get ucchaarana sthaana and prayatna based vector of a word or text
+
+    Parameters
+    ----------
+    word : str
+        Samskrit word (or text)
+    abbrev : bool
+        If True,
+            The output will contain English abbreviations
+        Otherwise,
+            The output will contain Samskrit names
+        The default is False.
+    Returns
+    -------
+    vectors : list
+        List of (letter, vector)
+    """
+    letters = []
+    for letter in split_varna_word(word, technical=False):
+        if [v for v in EXTRA_MATRA if v in letter]:
+            letters.extend(letter)
+        else:
+            letters.append(letter)
+    return [
+        (letter, get_ucchaarana_vector(letter, abbrev))
+        for letter in letters
+    ]
 
 ###############################################################################
 
 
 def get_signature_letter(letter, abbrev=False):
     """
-    Get uccharana sthaana and prayatna based signature of a letter
+    Get ucchaarana sthaana and prayatna based signature of a letter
 
     Parameters
     ----------
@@ -677,7 +771,6 @@ def get_signature_letter(letter, abbrev=False):
     signature : dict
         utpatti sthaana, aabhyantara prayatna and baahya prayatna of a letter
     """
-
     sthaana = get_ucchaarana_letter(letter, dimension=0, abbrev=abbrev)
     aabhyantara = get_ucchaarana_letter(letter, dimension=1, abbrev=abbrev)
     baahya = get_ucchaarana_letter(letter, dimension=2, abbrev=abbrev)
@@ -692,7 +785,7 @@ def get_signature_letter(letter, abbrev=False):
 
 def get_signature_word(word, abbrev=False):
     """
-    Get uccharana sthaana and prayatna based signature of a word
+    Get ucchaarana sthaana and prayatna based signature of a word
 
     Parameters
     ----------
@@ -727,7 +820,7 @@ def get_signature_word(word, abbrev=False):
 
 def get_signature(text, abbrev=False):
     """
-    Get uccharana list of a Samskrit text
+    Get ucchaarana list of a Samskrit text
 
     Parameters
     ----------
@@ -761,7 +854,7 @@ def get_signature(text, abbrev=False):
 
 def get_ucchaarana_letter(letter, dimension=0, abbrev=False):
     """
-    Get uccharana sthaana or prayatna of a letter
+    Get ucchaarana sthaana or prayatna of a letter
 
     Parameters
     ----------
@@ -781,26 +874,26 @@ def get_ucchaarana_letter(letter, dimension=0, abbrev=False):
     Returns
     -------
     str
-        uccharana sthaana or prayatna of a letter
+        ucchaarana sthaana or prayatna of a letter
 
     """
     varna = letter.replace(HALANTA, '') if letter.endswith(HALANTA) else letter
     ucchaarana = []
-    DICTS = [STHAANA, AABHYANTARA, BAAHYA]
-    NAMES = [STHAANA_NAMES, AABHYANTARA_NAMES, BAAHYA_NAMES]
+    _UCCHAARANA = [STHAANA, AABHYANTARA, BAAHYA]
+    _NAMES = [STHAANA_NAMES, AABHYANTARA_NAMES, BAAHYA_NAMES]
 
     if abbrev:
-        def uccharana_name(s):
+        def ucchaarana_name(s):
             return s
         join_str = '-'
     else:
-        def uccharana_name(s):
-            return NAMES[dimension][s]
+        def ucchaarana_name(s):
+            return _NAMES[dimension][s]
         join_str = ' '
 
-    for s, varna_list in DICTS[dimension].items():
+    for s, varna_list in _UCCHAARANA[dimension].items():
         if varna in varna_list:
-            ucchaarana.append(uccharana_name(s))
+            ucchaarana.append(ucchaarana_name(s))
 
     if len(ucchaarana) > 1 and not abbrev:
         ucchaarana.append('च')
@@ -810,7 +903,7 @@ def get_ucchaarana_letter(letter, dimension=0, abbrev=False):
 
 def get_ucchaarana_word(word, dimension=0, abbrev=False):
     """
-    Get uccharana of a word
+    Get ucchaarana of a word
 
     Parameters
     ----------
@@ -832,7 +925,7 @@ def get_ucchaarana_word(word, dimension=0, abbrev=False):
     Returns
     -------
     list
-        List of (letter, uccharana)
+        List of (letter, ucchaarana)
 
     """
     letters = []
@@ -849,7 +942,7 @@ def get_ucchaarana_word(word, dimension=0, abbrev=False):
 
 def get_ucchaarana(text, dimension=0, abbrev=False):
     """
-    Get uccharana list of a Samskrit text
+    Get ucchaarana list of a Samskrit text
 
     Parameters
     ----------
@@ -868,7 +961,7 @@ def get_ucchaarana(text, dimension=0, abbrev=False):
     Returns
     -------
     list
-        List of (letter, uccharana) for words in a nested list manner
+        List of (letter, ucchaarana) for words in a nested list manner
         Nesting Levels: Text -> Lines -> Words
     """
     lines = split_lines(text.strip())
