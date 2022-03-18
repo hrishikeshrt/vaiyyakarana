@@ -48,7 +48,7 @@ Please refer to the INSTALL.md file for installation instructions.
 
 ## Contributors
 
-* Hrishikesh Terdalkar (hrishirt@cse.iitk.ac.in)
-* Mahesh A V S D S (maheshak@cse.iitk.ac.in)
-* Shubhangi Agarwal (sagarwal@cse.iitk.ac.in)
-* Arnab Bhattacharya (arnabb@cse.iitk.ac.in)
+* Hrishikesh Terdalkar
+* Mahesh A V S D S
+* Shubhangi Agarwal
+* Arnab Bhattacharya
