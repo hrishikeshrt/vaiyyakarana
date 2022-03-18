@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Fri Jan  1 11:18:04 2021
-
-@author: Hrishikesh Terdalkar
-
-
 Python Interface for Inria Heritage Platform
 
 Can query through web mirror and unix shell
@@ -17,10 +12,11 @@ UNIX Shell
 - execute various scripts, such as ./reader
 - still produces HTML output that needs to be parsed
 
-
 # Default input needs to be in the devanagari format
 # HeritagePlatform.dn2vh() function will convert this to VH
 """
+
+###############################################################################
 
 import os
 import re
@@ -30,8 +26,9 @@ import signal
 import logging
 import functools
 import subprocess
-import dataclasses
 import urllib.parse
+
+from dataclasses import dataclass, field
 
 import requests
 
@@ -110,7 +107,7 @@ HERITAGE_LANG = {
 }
 
 # https://sanskrit.inria.fr/manual.html
-COLOURS = {
+HERITAGE_COLOURS = {
     'deep_sky': 'substantive/adjective forms',  # सुभन्त
     'red': 'finite verbal forms',  # तिङन्त
     'lawngreen': 'vocative',
@@ -156,12 +153,15 @@ COLOURS = {
 ###############################################################################
 
 
-@dataclasses.dataclass
+@dataclass
 class HeritageAnalysis:
-    pass
+    case: str = field(default=None)
+    number: str = field(default=None)
+    gender: str = field(default=None)
+    tense: str = field(default=None)
 
 
-@dataclasses.dataclass
+@dataclass
 class Token:
     pass
 
@@ -266,7 +266,7 @@ class HeritageOutput:
                     if meta:
                         word['classes'] = css_classes
                     word['category'] = [
-                        COLOURS.get(css_class.split('_back')[0], None)
+                        HERITAGE_COLOURS.get(css_class.split('_back')[0], None)
                         for css_class in css_classes
                     ]
                     word_analyses = []
@@ -357,7 +357,6 @@ class HeritageOutput:
             return None
         marker = self.soup.find('a', attrs={'name': word_id})
         parent = marker.find_parent()
-        return self
         # TODO: complete
 
     @staticmethod
@@ -793,7 +792,7 @@ class HeritagePlatform:
             return
 
         output = HeritageOutput(content)
-        return output.extract_lexicon_entry(word_id)
+        return output.extract_lexicon_entry()
 
     ###########################################################################
     # Fetch Result through Web or Shell
