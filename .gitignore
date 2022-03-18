@@ -2,7 +2,6 @@ suggestions/
 
 *.log
 db/**
-data/**
 **/__pycache__/**
 
 # Sessions

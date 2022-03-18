@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Jun 17 18:27:54 2019
+Logger Setup
 
 @author: Hrishikesh Terdalkar
 

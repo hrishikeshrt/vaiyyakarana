@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+DhatuPatha from Ashtadhyayi.com
+
 Created on Tue Nov  3 15:09:14 2020
 
 @author: Hrishikesh Terdalkar

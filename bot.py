@@ -12,17 +12,18 @@ from indic_transliteration import sanscript
 
 import tabulate
 
-import dhatupatha
-import shabdapatha
-import heritage
-
+# local
 import config
-import samskrit_text as skt
+
+from utils.dhatupatha import DhatuPatha
+from utils.shabdapatha import ShabdaPatha
+from utils.heritage import HeritagePlatform
+import utils.sanskrit_text as skt
 
 ###############################################################################
 # Utilities
 
-Dhatu = dhatupatha.DhatuPatha(
+Dhatu = DhatuPatha(
     config.dhatu_file,
     display_keys=[
         'baseindex', 'dhatu', 'aupadeshik', 'gana', 'pada', 'artha', 'karma',
@@ -30,7 +31,7 @@ Dhatu = dhatupatha.DhatuPatha(
     ]
 )
 
-Shabda = shabdapatha.ShabdaPatha(config.shabda_file)
+Shabda = ShabdaPatha(config.shabda_file)
 
 if not config.hellwig_splitter_dir:
     class NonSplitter:
@@ -38,13 +39,13 @@ if not config.hellwig_splitter_dir:
             return "दत्तपदस्य विग्रहं कर्तुं न शक्यते"
     Vigraha = NonSplitter()
 else:
-    import splitter
-    Vigraha = splitter.Splitter(config.hellwig_splitter_dir)
+    from utils.splitter import Splitter
+    Vigraha = Splitter(config.hellwig_splitter_dir)
 
 if config.heritage_platform_dir:
-    Heritage = heritage.HeritagePlatform(config.heritage_platform_dir)
+    Heritage = HeritagePlatform(config.heritage_platform_dir)
 else:
-    Heritage = heritage.HeritagePlatform('', method='web')
+    Heritage = HeritagePlatform('', method='web')
 
 if not os.path.isdir(config.suggestion_dir):
     os.makedirs(config.suggestion_dir)

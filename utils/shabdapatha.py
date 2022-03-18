@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+ShabdaPatha from Ashtadhyayi.com
+
 Created on Thu Dec 10 17:35:57 2020
 
 @author: Hrishikesh Terdalkar
@@ -9,7 +11,7 @@ Created on Thu Dec 10 17:35:57 2020
 import re
 import json
 
-import samskrit_text as skt
+import utils.sanskrit_text as skt
 
 ###############################################################################
 
