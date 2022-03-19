@@ -61,11 +61,14 @@ class Splitter:
         )
         self.analyze_text = helper_functions.analyze_text
 
-        self.graph_pred = tf.Graph()
-        with self.graph_pred.as_default():
-            self.sess = tf.Session(graph=self.graph_pred)
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.sess = tf.Session(graph=self.graph)
             model_dir = model_dir = os.path.normpath(
-                os.path.join(self.base_dir, self.sandhi_config['model_directory'])
+                os.path.join(
+                    self.base_dir,
+                    self.sandhi_config['model_directory']
+                )
             )
             tf.saved_model.loader.load(
                 self.sess,
@@ -74,11 +77,11 @@ class Splitter:
             )
             print('OK')
 
-        self.x_ph = self.graph_pred.get_tensor_by_name('inputs:0')
-        self.split_cnts_ph = self.graph_pred.get_tensor_by_name('split_cnts:0')
-        self.dropout_ph = self.graph_pred.get_tensor_by_name('dropout_keep_prob:0')
-        self.seqlen_ph = self.graph_pred.get_tensor_by_name('seqlens:0')
-        self.predictions_ph = self.graph_pred.get_tensor_by_name('predictions:0')
+        self.x_ph = self.graph.get_tensor_by_name('inputs:0')
+        self.split_cnts_ph = self.graph.get_tensor_by_name('split_cnts:0')
+        self.dropout_ph = self.graph.get_tensor_by_name('dropout_keep_prob:0')
+        self.seqlen_ph = self.graph.get_tensor_by_name('seqlens:0')
+        self.predictions_ph = self.graph.get_tensor_by_name('predictions:0')
 
     def _perform_split(self, path_in, path_out):
         """Perform Sandhi-Samaasa split on IAST input file
