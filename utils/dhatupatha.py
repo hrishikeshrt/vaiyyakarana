@@ -4,9 +4,12 @@
 DhatuPatha from Ashtadhyayi.com
 
 Created on Tue Nov  3 15:09:14 2020
+Updated on Sun Mar 20 00:11:33 2022
 
 @author: Hrishikesh Terdalkar
 """
+
+###############################################################################
 
 import os
 import re
@@ -188,10 +191,11 @@ class DhatuPatha:
                 if search_str in self.forms[dhatu_idx][lakara_key]:
                     indices = self.forms[dhatu_idx][lakara_key][search_str]
                     for idx in indices:
+                        p_idx, v_idx = divmod(idx, 3)
                         description = '{} {} {}'.format(
                             lakara_name,
-                            PURUSHA[idx // 3],
-                            VACHANA[idx % 3]
+                            PURUSHA[p_idx],
+                            VACHANA[v_idx]
                         )
                         search_matches.append({
                             'dhatu': display_dhatu,
@@ -220,9 +224,8 @@ class DhatuPatha:
             if not forms.strip():
                 continue
             for pv_idx, pv_forms in enumerate(forms.split(';')):
-                purusha_idx = pv_idx // 3
-                vachana_idx = pv_idx % 3
-                output[lakara][purusha_idx + 1][vachana_idx + 1] = pv_forms.split(',')
+                p_idx, v_idx = divmod(pv_idx, 3)
+                output[lakara][p_idx + 1][v_idx + 1] = pv_forms.split(',')
         return output
 
     @staticmethod

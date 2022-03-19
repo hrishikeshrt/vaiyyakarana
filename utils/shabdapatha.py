@@ -4,9 +4,12 @@
 ShabdaPatha from Ashtadhyayi.com
 
 Created on Thu Dec 10 17:35:57 2020
+Updated on Sun Mar 20 00:13:20 2022
 
 @author: Hrishikesh Terdalkar
 """
+
+###############################################################################
 
 import re
 import json
@@ -121,9 +124,10 @@ class ShabdaPatha:
                     if shabda_form == search_str
                 ]
                 for idx in indices:
+                    vibhakti_idx, vachana_idx = divmod(idx, 3)
                     description = '{} {}'.format(
-                        VIBHAKTI[idx // 3],
-                        VACHANA[idx % 3]
+                        VIBHAKTI[vibhakti_idx],
+                        VACHANA[vachana_idx]
                     )
                     search_matches.append({
                         'shabda': display_shabda,
