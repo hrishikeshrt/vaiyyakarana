@@ -15,9 +15,9 @@ import tabulate
 # local
 import config
 
-from utils.dhatupatha import DhatuPatha
+from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
-from utils.heritage import HeritagePlatform
+from utils.heritage import HeritagePlatform, HERITAGE_LANG
 import utils.sanskrit_text as skt
 
 ###############################################################################
@@ -66,7 +66,9 @@ transliteration_config = {
         sanscript.DEVANAGARI: 'देवनागरी',
         sanscript.HK: 'Harvard-Kyoto',
         sanscript.VELTHUIS: 'Velthuis',
-        sanscript.ITRANS: 'ITRANS'
+        sanscript.ITRANS: 'ITRANS',
+        sanscript.SLP1: 'SLP1',
+        sanscript.WX: 'WX'
     },
     'default': sanscript.DEVANAGARI,
     'internal': sanscript.DEVANAGARI
@@ -121,13 +123,13 @@ def format_verb_match(dhaatu):
     output = []
     kramanka = ''
     for k, v in dhaatu['dhatu'].items():
-        output_key = dhatupatha.DHATU_LANG.get(k, k)
+        output_key = DHATU_LANG.get(k, k)
         output_val = v
         if output_key == 'क्रमाङ्कः':
             kramanka = output_val
             continue
-        if k in dhatupatha.VALUES_LANG:
-            output_val = dhatupatha.VALUES_LANG[k][v]
+        if k in VALUES_LANG:
+            output_val = VALUES_LANG[k][v]
         output.append(f'**{output_key}** - {output_val}')
 
     if dhaatu['desc']:
@@ -162,8 +164,8 @@ def format_verb_forms(dhatu, rupaani, full_flag):
     output = [
         (f"{dhatu['dhatu']} ({dhatu['aupadeshik']}), "
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
-        (f"{dhatupatha.VALUES_LANG['gana'][dhatu['gana']]}, "
-         f"{dhatupatha.VALUES_LANG['pada'][dhatu['pada']]}, "),
+        (f"{VALUES_LANG['gana'][dhatu['gana']]}, "
+         f"{VALUES_LANG['pada'][dhatu['pada']]}, "),
     ]
 
     show_lakara = [
@@ -183,7 +185,7 @@ def format_verb_forms(dhatu, rupaani, full_flag):
                 _output = p_output
 
             _output.append('')
-            _output.append(dhatupatha.LAKARA_LANG[lakara])
+            _output.append(LAKARA_LANG[lakara])
             _output.append("```" + tabulate.tabulate(
                 [[', '.join(cell) for cell in row] for row in forms],
                 headers="firstrow",
@@ -642,7 +644,7 @@ async def search_word(event):
                     _match = {}
                     _match['root'] = word_analysis['root']
                     for x in analysis:
-                        for a_key, a_values in heritage.HERITAGE_LANG.items():
+                        for a_key, a_values in HERITAGE_LANG.items():
                             if x in a_values:
                                 _match[a_key] = a_values[x]
                                 if a_key == 'gender':
