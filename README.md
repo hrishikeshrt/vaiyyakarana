@@ -1,21 +1,22 @@
-# Vyakarana Telegram Bot
+# Vaiyyākaraṇa -- Vyakarana Bot for Telegram
 
-A telegram bot that offers various tools for a Sanskrit learner including stem (प्रातिपदिकम्) finder, root (धातुः) finder, declension (सुबन्ताः) generator, conjugation (तिङन्ताः) generator, and compound word (सन्धिसमासौ) splitter.
+Vaiyyākaraṇa is a telegram bot that offers various tools
+for a Sanskrit learner including stem (प्रातिपदिकम्) finder, root (धातुः) finder, declension (सुबन्ताः) generator, conjugation (तिङन्ताः) generator, and compound word (सन्धिसमासौ) splitter.
 
 
 The bot is powered by,
 
 * Telethon  https://docs.telethon.dev/en/latest/
 
-* https://ashtadhyayi.com for conjugations (Dhaatu Paatha)
+* https://ashtadhyayi.com for conjugations (धातुपाठः)
 
-* Heritage Platform by Gérard Huet for declensions
+* The Heritage Platform by Gérard Huet for declensions
 
-* Sandhi and Compound Splitter by Oliver Hellwig
+* Sanskrit Sandhi and Compound Splitter by Oliver Hellwig
 
 ## Installation
 
-Please refer to the INSTALL.md file for installation instructions.
+Please refer to the [INSTALL.md](INSTALL.md) file for installation instructions.
 
 ## Usage
 
