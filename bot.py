@@ -19,7 +19,7 @@ import config
 
 from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
-import utils.sanskrit_text as skt
+import sanskrit_text as skt
 
 ###############################################################################
 # Utilities

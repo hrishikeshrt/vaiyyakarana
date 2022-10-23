@@ -1,0 +1,8 @@
+Telethon>=1.21.1
+requests>=2.26.0
+beautifulsoup4>=4.10.0
+indic_transliteration>=2.3.10
+tabulate>=0.8.9
+heritage>=0.1.1
+sanskrit-text>=0.2.3
+# SQLAlchemy>=1.4.28
