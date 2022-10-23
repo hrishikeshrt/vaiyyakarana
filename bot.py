@@ -13,13 +13,13 @@ from indic_transliteration import sanscript
 import tabulate
 
 from heritage import HeritagePlatform, HERITAGE_LANG
+import sanskrit_text as skt
 
 # local
 import config
 
 from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
-import sanskrit_text as skt
 
 ###############################################################################
 # Utilities
