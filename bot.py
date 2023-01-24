@@ -17,6 +17,7 @@ from heritage import HeritagePlatform, HERITAGE_LANG
 # local
 import config
 
+from utils.functions import fold
 from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
 import utils.sanskrit_text as skt
@@ -37,11 +38,11 @@ Shabda = ShabdaPatha(config.shabda_file)
 if not config.hellwig_splitter_dir:
     class NonSplitter:
         def split(self, sentence):
-            return "दत्तपदस्य विग्रहं कर्तुं न शक्यते"
-    Vigraha = NonSplitter()
+            return "दत्तपदस्य विश्लेषणं कर्तुं न शक्यते"
+    VISHLESHANA = NonSplitter()
 else:
     from utils.splitter import Splitter
-    Vigraha = Splitter(config.hellwig_splitter_dir)
+    VISHLESHANA = Splitter(config.hellwig_splitter_dir)
 
 if config.heritage_platform_dir:
     Heritage = HeritagePlatform(config.heritage_platform_dir)
@@ -207,7 +208,7 @@ async def start(event):
 
     start_message = [
         '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठं शब्दपाठं पदविग्रहं च जानामि।',
+        'अहम् धातुपाठं शब्दपाठं पदविश्लेषणं च जानामि।',
     ]
 
     await event.respond('\n'.join(start_message), parse_mode='html')
@@ -231,7 +232,7 @@ async def help(event):
         'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',  # noqa
         'धातु or /dhatu - एकं धातुं अन्वेषयतु (Search a verb form)',
         'शब्द or /shabda - एकं शब्दं अन्वेषयतु (Search a word form)',
-        'विग्रह or /vigraha - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',  # noqa
+        'विश्लेषण or /vishleshana - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',  # noqa
         'सूचना or /suggest - अभिप्रायसङ्कलनं करोतु (Collect feedback)'
     ]
 
@@ -376,9 +377,9 @@ async def search(event):
         ]
         shabdarupa_command = shabdarupa_command + ['shabdarup']
 
-        vigraha_command = [
+        vishleshana_command = [
             sanscript.transliterate(
-                'विग्रह',
+                'विश्लेषण',
                 transliteration_config['internal'],
                 output_scheme
             )
@@ -413,7 +414,7 @@ async def search(event):
             await show_verb_forms(event)
         elif keys[0] in shabdarupa_command:
             await search_word_forms(event)
-        elif keys[0] in vigraha_command:
+        elif keys[0] in vishleshana_command:
             await sandhi_samaasa_split(event)
         elif keys[0] in suggestion_command:
             await give_suggestions(event)
@@ -427,21 +428,21 @@ async def search(event):
         keyboard = [
             [Button.inline("सुबन्तम् पदम्", data=f'{text} sup'),
              Button.inline("तिङन्तम् पदम्", data=f'{text} tiG')],
-            [Button.inline("सन्धिपदम् समस्तपदम्", data=f'{text} vig')],
+            [Button.inline("सन्धिपदम् समस्तपदम्", data=f'{text} vis')],
             [Button.inline("साहाय्यम्", data=f'{text} help')]
         ]
         await event.reply('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
     elif len(keys) > 2:
-        vigraha_command = [
+        vishleshana_command = [
             sanscript.transliterate(
-                'विग्रह',
+                'विश्लेषण',
                 transliteration_config['internal'],
                 output_scheme
             )
             for output_scheme in transliteration_config['schemes']
         ]
 
-        if keys[0] in vigraha_command:
+        if keys[0] in vishleshana_command:
             await sandhi_samaasa_split(event)
         else:
             await event.respond("क्षम्यताम्।")
@@ -471,8 +472,8 @@ async def redirect(event):
     elif form == 'tiG':
         event.text = '/dhatu ' + text
         await search_verb(event)
-    elif form == 'vig':
-        event.text = '/vigraha ' + text
+    elif form == 'vis':
+        event.text = '/vishleshana ' + text
         await sandhi_samaasa_split(event)
 
 ###############################################################################
@@ -714,7 +715,7 @@ async def search_word(event):
             )
 
 
-@bot.on(events.NewMessage(pattern='^/vigraha '))
+@bot.on(events.NewMessage(pattern='^/(vishleshana|vigraha) '))
 async def sandhi_samaasa_split(event):
     """Output the sandhi split of the input word."""
     global transliteration_scheme
@@ -725,12 +726,17 @@ async def sandhi_samaasa_split(event):
         get_user_scheme(sender_id),
         transliteration_config['internal']
     )
-    split_line = Vigraha.split(input_line)
-    # print(f"SPLIT: '{input_line}' --> '{split_line}'")
+    # Limit on IAST text is 128 characters
+    # 115 is just a heuristic approximation for Devanagari text
+    # so that resulting IAST is < 128 length
+
     if input_line == "":
         await event.reply('USAGE: /split पद')
     else:
-        await event.respond(split_line)
+        fold_input_line = fold(input_line, width=115)
+        split_output = VISHLESHANA.split(fold_input_line)
+        # print(f"SPLIT: '{input_line}' --> '{split_line}'")
+        await event.respond(split_output)
 
 ###############################################################################
 
