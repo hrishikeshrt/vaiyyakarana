@@ -14,7 +14,7 @@ Updated on Sun Mar 20 00:13:20 2022
 import re
 import json
 
-import utils.sanskrit_text as skt
+import sanskrit_text as skt
 
 ###############################################################################
 
