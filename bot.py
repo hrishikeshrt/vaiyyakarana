@@ -5,6 +5,7 @@ Telegram Vyakarana Bot
 """
 
 import os
+import logging
 import datetime
 
 from telethon import TelegramClient, events, sync, Button  # noqa
@@ -18,63 +19,109 @@ import sanskrit_text as skt
 # local
 import config
 
+from constants import (
+    MESSAGE_INTRODUCTION,
+    MESSAGE_AVAILABLE_COMMANDS,
+    MESSAGE_NO_SEGMENTER,
+    MESSAGE_CHOOSE_SCHEME,
+    MESSAGE_THANK_YOU,
+    MESSAGE_ASK_QUERY,
+    MESSAGE_SELECTED_SCHEME,
+    MESSAGE_SHOW_FORMS,
+    MESSAGE_ALL_VERB_FORMS,
+    MESSAGE_UNKNOWN_WORD,
+    MESSAGE_UNKNOWN_VERB,
+    MESSAGE_CHOOSE_TYPE,
+    MESSAGE_SUGGESTION_REPLY,
+
+    CALLBACK_SEPARATOR,
+    CALLBACK_PREFIX_SCHEME,
+    CALLBACK_PREFIX_QUERY,
+
+    KEYWORD_FULL,
+
+    ERROR_MESSAGE_COMMON,
+    ERROR_MESSAGE_ARGUMENT_MISTMATCH,
+
+    COMMAND_HELP,
+    COMMAND_SCHEME,
+    COMMAND_VERB,
+    COMMAND_WORD,
+    COMMAND_CONJUGATION,
+    COMMAND_DECLENSION,
+    COMMAND_SEGMENTATION,
+    COMMAND_SUGGESTION,
+
+    COMMAND_DETAILS,
+    BUTTONS,
+)
 from utils.functions import fold
 from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
 
 ###############################################################################
-# Utilities
+# Initialization
 
-Dhatu = DhatuPatha(
-    config.dhatu_file,
+# --------------------------------------------------------------------------- #
+
+DHATUPATHA = DhatuPatha(
+    config.DHATU_FILE,
     display_keys=[
         'baseindex', 'dhatu', 'aupadeshik', 'gana', 'pada', 'artha', 'karma',
         'artha_english'
     ]
 )
 
-Shabda = ShabdaPatha(config.shabda_file)
+# --------------------------------------------------------------------------- #
 
-if not config.hellwig_splitter_dir:
+SHABDAPATHA = ShabdaPatha(config.SHABDA_FILE)
+
+# --------------------------------------------------------------------------- #
+
+if not config.HELLWIG_SPLITTER_DIR:
     class NonSplitter:
         def split(self, sentence):
-            return "दत्तपदस्य विश्लेषणं कर्तुं न शक्यते"
+            return MESSAGE_NO_SEGMENTER
     VISHLESHANA = NonSplitter()
 else:
     from utils.splitter import Splitter
-    VISHLESHANA = Splitter(config.hellwig_splitter_dir)
+    VISHLESHANA = Splitter(config.HELLWIG_SPLITTER_DIR)
 
-if config.heritage_platform_dir:
-    Heritage = HeritagePlatform(config.heritage_platform_dir)
+# --------------------------------------------------------------------------- #
+
+if config.HERITAGE_PLATFORM_DIR:
+    Heritage = HeritagePlatform(config.HERITAGE_PLATFORM_DIR)
 else:
     Heritage = HeritagePlatform('', method='web')
 
-if not os.path.isdir(config.suggestion_dir):
-    os.makedirs(config.suggestion_dir)
+# --------------------------------------------------------------------------- #
+
+if not os.path.isdir(config.SUGGESTION_DIR):
+    os.makedirs(config.SUGGESTION_DIR)
 
 ###############################################################################
 # Bot Client
 
 bot = TelegramClient(
-    'Bot Session',
+    config.TelegramConfig.bot_user,  # Session Identifier
     config.TelegramConfig.api_id,
     config.TelegramConfig.api_hash
 )
 
 ###############################################################################
+# Transliteration Configuration
 
-transliteration_config = {
-    'schemes': {
-        sanscript.DEVANAGARI: 'देवनागरी',
-        sanscript.HK: 'Harvard-Kyoto',
-        sanscript.VELTHUIS: 'Velthuis',
-        sanscript.ITRANS: 'ITRANS',
-        sanscript.SLP1: 'SLP1',
-        sanscript.WX: 'WX'
-    },
-    'default': sanscript.DEVANAGARI,
-    'internal': sanscript.DEVANAGARI
+TRANSLITERATION_SCHEMES = {
+    sanscript.DEVANAGARI: 'देवनागरी',
+    sanscript.HK: 'Harvard-Kyoto',
+    sanscript.VELTHUIS: 'Velthuis',
+    sanscript.ITRANS: 'ITRANS',
+    sanscript.SLP1: 'SLP1',
+    sanscript.WX: 'WX'
 }
+TRANSLITERATION_SCHEME_COMMAND = sanscript.HK
+TRANSLITERATION_SCHEME_DEFAULT = sanscript.DEVANAGARI
+TRANSLITERATION_SCHEME_INTERNAL = sanscript.DEVANAGARI
 
 ###############################################################################
 
@@ -82,7 +129,7 @@ transliteration_scheme = {}
 
 ###############################################################################
 
-gender_map = {
+GENDER_MAP = {
     'm': 'पुंलिङ्गम्',
     'f': 'स्त्रीलिङ्गम्',
     'n': 'नपुंसकलिङ्गम्',
@@ -99,11 +146,12 @@ gender_map = {
 def get_user_scheme(sender_id):
     global transliteration_scheme
     return transliteration_scheme.get(sender_id, {
-        'input': transliteration_config['default']
+        'input': TRANSLITERATION_SCHEME_DEFAULT
     })['input']
 
+
 ###############################################################################
-# Output formats for dhatu dhaturupa shabda and shabdarupa
+# Output Formatters
 
 
 def format_word_match(root, gender, cases):
@@ -151,7 +199,7 @@ def format_verb_match(dhaatu):
     return '\n'.join(output2), kramanka
 
 
-def format_word_forms(rupaani):
+def format_declensions(rupaani):
     formatted_table = tabulate.tabulate(
         [[', '.join(cell) for cell in row] for row in rupaani],
         headers="firstrow",
@@ -162,7 +210,7 @@ def format_word_forms(rupaani):
     return f"```{formatted_table}```"
 
 
-def format_verb_forms(dhatu, rupaani, full_flag):
+def format_conjugations(dhatu, rupaani, full_flag):
     output = [
         (f"{dhatu['dhatu']} ({dhatu['aupadeshik']}), "
          f"{dhatu['artha']}, {dhatu['artha_english']}"),
@@ -200,21 +248,18 @@ def format_verb_forms(dhatu, rupaani, full_flag):
             for _output in [output, p_output, a_output] if _output]
 
 ###############################################################################
+# Basic Event Handlers
 
 
+# Start
 @bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
 
-    start_message = [
-        '<h1>स्वागतम्।</h1>',
-        'अहम् धातुपाठं शब्दपाठं पदविश्लेषणं च जानामि।',
-    ]
-
-    await event.respond('\n'.join(start_message), parse_mode='html')
+    await event.respond('\n'.join(MESSAGE_INTRODUCTION), parse_mode='html')
 
     # call help handler
-    await help(event)
+    await help_handler(event)
 
     # call to scheme setting
     await set_scheme(event)
@@ -222,27 +267,30 @@ async def start(event):
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='^/help'))
-async def help(event):
-    """Send a message when the command /help is issued."""
+# Help
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_HELP]["command"])})'
+))
+async def help_handler(event):
+    """Display Help Message"""
 
-    help_message = [
-        'उपलब्ध-आदेशाः –',
-        'साहाय्य or /help - साहाय्यक-पटलं दर्शयतु (Print this help)',
-        'लेखनविधि or /setscheme - लेखनविधानं वृणोतु यदभावे देवनागरी (Choose input scheme, Default: Devanagari)',  # noqa
-        'धातु or /dhatu - एकं धातुं अन्वेषयतु (Search a verb form)',
-        'शब्द or /shabda - एकं शब्दं अन्वेषयतु (Search a word form)',
-        'विश्लेषण or /vishleshana - पदं (पदानि) विगृह्णातु (सन्धिसमासौ) (Split the sandhi samaasa)',  # noqa
-        'सूचना or /suggest - अभिप्रायसङ्कलनं करोतु (Collect feedback)'
-    ]
+    help_message = [MESSAGE_AVAILABLE_COMMANDS]
 
+    for _, _command in COMMAND_DETAILS.items():
+        if _command["help"]:
+            help_message.append(
+                f"{_command['sanskrit'][0]} or /{_command['command'][0]} - "
+                f"{_command['help.sanskrit']} ({_command['help.english']})"
+            )
     await event.respond('\n'.join(help_message))
 
 
-@bot.on(events.NewMessage(pattern='^/setscheme'))
+# Scheme
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_SCHEME]["command"])})'
+))
 async def set_scheme(event):
     '''Set transliteration scheme for user'''
-    global transliteration_config
     global transliteration_scheme
 
     keyboard = []
@@ -250,308 +298,67 @@ async def set_scheme(event):
     row_length = 2
 
     # Populating keyboard
-    for scheme, scheme_name in transliteration_config['schemes'].items():
+    for scheme, scheme_name in TRANSLITERATION_SCHEMES.items():
         current_row.append(
-            Button.inline(scheme_name, data=f'scheme_{scheme}')
+            Button.inline(
+                scheme_name,
+                data=f'{CALLBACK_PREFIX_SCHEME}_{scheme}'
+            )
         )
         if len(current_row) == row_length:
             keyboard.append(current_row)
             current_row = []
 
-    response_message = [
-        'कृपया एकां लेखनविधिं वृणोतु –'
-    ]
+    response_message = [MESSAGE_CHOOSE_SCHEME]
 
     # Asking user to choose a keyboard scheme
     await event.respond(
         '\n'.join(response_message), buttons=keyboard, parse_mode='html'
     )
-    # print("Scheme asked")
-    while event.data.decode('utf-8') == "":
-        pass
 
-###############################################################################
-# Inline button handlers
-
-
-@bot.on(events.CallbackQuery(pattern='^scheme_'))
-async def scheme_handler(event):
-    """ Invoked from set_scheme() """
-    global transliteration_scheme
-    global transliteration_config
-    sender_id = event.sender.id
-
-    if sender_id not in transliteration_scheme:
-        transliteration_scheme[sender_id] = {
-            'input': transliteration_config['default'],
-            'output': transliteration_config['default']
-        }
-
-    data = event.data.decode('utf-8')
-    _, scheme = data.split('_')
-
-    transliteration_scheme[sender_id]['input'] = scheme
-
-    # Editing last message, removing keyboard
-    last_message = await event.get_message()
-    await event.edit(
-        last_message.raw_text, buttons=Button.clear(), parse_mode='html'
-    )
-
-    response_message = [
-        'धन्यवादः।',
-        ' '.join(['वृणीता - ', transliteration_config['schemes'][scheme]]),
-        'कृपया पृच्छतु।'
-    ]
-
-    await event.respond('\n'.join(response_message))
-    raise events.StopPropagation
-
-
-@bot.on(events.CallbackQuery(pattern='^query_'))
-async def query_handler(event):
-    """ Invoked from search() when single words given as input """
-    # print("qh " + event.data.decode('utf-8'))
-    if 'help' in event.data.decode('utf-8'):
-        await help(event)
-    else:
-        await redirect(event)
-
-
-@bot.on(events.CallbackQuery(pattern='^[wordsearch_]|[verbsearch_]'))
-async def query_handler2(event):
-    """ Invoked from search_word() """
-    await redirect2(event)
+    # while event.data.decode('utf-8') == "":
+    #     pass
 
 
 ###############################################################################
-# Message Handlers
+# Verb Event Handlers
 
 
-@bot.on(events.NewMessage(pattern='^[^/]'))
-async def search(event):
-    event_text = event.text
-
-    # print(f"Search: {event_text}")
-    keys = event_text.split()
-
-    if len(keys) == 2:
-        # Check if first word is dhaatu or shabda in Latin or Devanagari
-        dhatu_command = [
-            sanscript.transliterate(
-                'धातु',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-        dhatu_command = dhatu_command + ['dhatu']
-
-        shabda_command = [
-            sanscript.transliterate(
-                'शब्द',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-        shabda_command = shabda_command + ['shabd']
-
-        dhaturupa_command = [
-            sanscript.transliterate(
-                'धातुरूप',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-        dhaturupa_command = dhaturupa_command + ['dhaturup']
-
-        shabdarupa_command = [
-            sanscript.transliterate(
-                'शब्दरूप',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-        shabdarupa_command = shabdarupa_command + ['shabdarup']
-
-        vishleshana_command = [
-            sanscript.transliterate(
-                'विश्लेषण',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-
-        suggestion_command = [
-            sanscript.transliterate(
-                x,
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for x in ['सूचना', 'प्रतिक्रिया']
-            for output_scheme in transliteration_config['schemes']
-        ]
-
-        help_command = [
-            sanscript.transliterate(
-                x,
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for x in ['साहाय्य']
-            for output_scheme in transliteration_config['schemes']
-        ]
-
-        if keys[0] in dhatu_command:
-            await search_verb(event)
-        elif keys[0] in shabda_command:
-            await search_word(event)
-        elif keys[0] in dhaturupa_command:
-            await show_verb_forms(event)
-        elif keys[0] in shabdarupa_command:
-            await search_word_forms(event)
-        elif keys[0] in vishleshana_command:
-            await sandhi_samaasa_split(event)
-        elif keys[0] in suggestion_command:
-            await give_suggestions(event)
-        elif keys[0] in help_command:
-            await help(event)
-        else:
-            await event.respond("क्षम्यताम्।")
-            await help(event)
-    elif len(keys) == 1:
-        text = f'query_{event_text}'
-        keyboard = [
-            [Button.inline("सुबन्तम् पदम्", data=f'{text} sup'),
-             Button.inline("तिङन्तम् पदम्", data=f'{text} tiG')],
-            [Button.inline("सन्धिपदम् समस्तपदम्", data=f'{text} vis')],
-            [Button.inline("साहाय्यम्", data=f'{text} help')]
-        ]
-        await event.reply('दत्तपदस्य प्रकारं वृणोतु –', buttons=keyboard)
-    elif len(keys) > 2:
-        vishleshana_command = [
-            sanscript.transliterate(
-                'विश्लेषण',
-                transliteration_config['internal'],
-                output_scheme
-            )
-            for output_scheme in transliteration_config['schemes']
-        ]
-
-        if keys[0] in vishleshana_command:
-            await sandhi_samaasa_split(event)
-        else:
-            await event.respond("क्षम्यताम्।")
-            await help(event)
-
-
-async def redirect2(event):
-    # print('Redirect2')
-    data = event.data.decode('utf-8')
-    words = data.split('_')
-    command = words[0]
-    if command == 'wordsearch':
-        event.text = '/shabdarupa ' + ' '.join(words[1:])
-        await search_word_forms(event)
-    elif command == 'verbsearch':
-        event.text = '/dhaturupa ' + ' '.join(words[1:])
-        await show_verb_forms(event)
-
-
-async def redirect(event):
-    # print("Redirect")
-    data = event.data.decode('utf-8')
-    text, form = data.split('_')[1].split()
-    if form == 'sup':
-        event.text = '/shabda ' + text
-        await search_word(event)
-    elif form == 'tiG':
-        event.text = '/dhatu ' + text
-        await search_verb(event)
-    elif form == 'vis':
-        event.text = '/vishleshana ' + text
-        await sandhi_samaasa_split(event)
-
-###############################################################################
-
-
-@bot.on(events.NewMessage(pattern='^/dr_'))
-async def show_verb_forms_wrapper(event):
-    words = event.text.split("_")
-    full_keyword = 'full' if 'full' in words else ''
-    kramanka = '.'.join(words[1:3])
-    event.text = ' '.join(['/dhaturupa', kramanka, full_keyword])
-    # print(f'dr {event.text}')
-    await show_verb_forms(event)
-    raise events.StopPropagation
-
-
-@bot.on(events.NewMessage(pattern='^/dhaturupa'))
-async def show_verb_forms(event):
-    words = event.text.split()
-    search_key = '.'.join(words[1:3])
-    full_flag = 'full' in words
-    # print(f'svf {full_flag}')
-    if search_key == "" or len(search_key.split()) > 1:
-        # await event.reply('USAGE: /dhaturupa धातुः/धातुरूपम्')
-        pass
-    else:
-        dhaatu_idx = Dhatu.validate_index(search_key)
-        if dhaatu_idx:
-            # print(f"VERBINDEX: {dhaatu_idx}")
-            dhaatu = Dhatu.get(dhaatu_idx)
-            rupaani = Dhatu.get_forms(dhaatu_idx)
-            dhaturupa_output = format_verb_forms(dhaatu, rupaani, full_flag)
-            if not full_flag:
-                # Provide option to check all lakaras
-                command_key = search_key.replace(".", "_")
-                full_command = f'\nसर्वे लकाराः - /dr_{command_key}_full'
-                dhaturupa_output.append(full_command)
-            for output in dhaturupa_output:
-                await event.respond(output)
-        else:
-            # print(f"INVALID_VERBINDEX: {dhaatu_idx}")
-            pass
-    raise events.StopPropagation
-
-
-@bot.on(events.NewMessage(pattern='^/dhatu '))
-async def search_verb(event):
-    global transliteration_scheme
-    global transliteration_config
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_VERB]["command"])}) '
+))
+async def verb_handler(event):
+    _command = COMMAND_DETAILS[COMMAND_VERB]
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
-    # print(f"VERBSEARCH: {search_key}")
 
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /dhatu धातुः/धातुरूपम्')
+        await event.reply(
+            f'USAGE: /{_command["command"][0]} {_command["argument_text"]}'
+        )
     else:
         search_key = sanscript.transliterate(
             search_key,
             get_user_scheme(sender_id),
-            transliteration_config['internal']
+            TRANSLITERATION_SCHEME_INTERNAL
         )
         matches = [
             format_verb_match(match)
-            for match in Dhatu.search(search_key)
+            for match in DHATUPATHA.search(search_key)
         ]
         # print(matches)
         if not matches:
-            await event.respond('तम् धातुम् धातुरूपम् वा न जानामि।')
+            await event.respond(MESSAGE_UNKNOWN_VERB)
         else:
             display_message = []
             for match in matches:
-                # keyboard = [[Button.inline('रूपं दर्शयतु',
-                #                            data=f'verbsearch_{match[1]}')]]
-                # await event.respond(match[0])   #, buttons=keyboard)
                 match_message = match[0].split("\n")
                 kramanka = match[1].replace(".", "_")
 
-                match_message.append(f'रूपं दर्शयतु - /dr_{kramanka}')
+                match_message.append(
+                    f'{MESSAGE_SHOW_FORMS} '
+                    f'/dr_{kramanka}'
+                )
                 display_message.append('\n'.join(match_message))
 
             max_char_len = 4096
@@ -568,69 +375,72 @@ async def search_verb(event):
             await event.respond('\n\n'.join(curr_msg))
 
 
-@bot.on(events.NewMessage(pattern='^/sr_'))
-async def search_word_forms_wrapper(event):
+@bot.on(events.NewMessage(pattern='^/dr_'))
+async def conjugation_handler_wrapper(event):
+    _bot_command = COMMAND_DETAILS[COMMAND_CONJUGATION]["command"][0]
     words = event.text.split("_")
-    # Change back root from ITRANS to devanagari
-    words[1] = sanscript.transliterate(
-        words[1],
-        sanscript.HK,
-        transliteration_config['internal']
-    )
-    # Fetch gender
-    words[2] = gender_map[words[2]]
-    event.text = ' '.join(['/shabdarupa', words[1], words[2]])
-    await search_word_forms(event)
+    kramanka = '.'.join(words[1:3])
+    full_keyword = KEYWORD_FULL if KEYWORD_FULL in words else ''
+    event.text = ' '.join([f'/{_bot_command}', kramanka, full_keyword])
+    await conjugation_handler(event)
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='^/shabdarupa'))
-async def search_word_forms(event):
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_CONJUGATION]["command"])}) '
+))
+async def conjugation_handler(event):
     words = event.text.split()
-    if len(words) == 3:
-        root = words[1]
-        gender = words[2]
+    # print(words)
+    search_key = words[1]
+    full_flag = KEYWORD_FULL in words
 
-        # print(f'WORDFORMS: {root} {gender}')
-        shabdapatha_gender = gender_map[gender].replace('a', 'm')
-        shabda_idx = Shabda.get_word(root, shabdapatha_gender)
-        if shabda_idx is not None:
-            rupaani = Shabda.get_forms(shabda_idx)
-        else:
-            rupaani = Heritage.get_declensions(root, gender)
-
-        rupaani[0][0] = ""
-        await event.respond('\n'.join([
-            f"**प्रातिपदिकम्**: {root}, **लिङ्गम्**: {gender}",
-            format_word_forms(rupaani)
-        ]))
+    if search_key == "" or len(search_key.split()) > 1:
+        pass
     else:
-        await event.reply("USAGE: /shabdarupa root gender")
+        dhaatu_idx = DHATUPATHA.validate_index(search_key)
+        if dhaatu_idx:
+            # print(f"VERBINDEX: {dhaatu_idx}")
+            dhaatu = DHATUPATHA.get(dhaatu_idx)
+            rupaani = DHATUPATHA.get_forms(dhaatu_idx)
+            dhaturupa_output = format_conjugations(dhaatu, rupaani, full_flag)
+            if not full_flag:
+                # Provide option to check all lakArAH
+                command_key = search_key.replace(".", "_")
+                full_command = (
+                    f'\n{MESSAGE_ALL_VERB_FORMS} '
+                    f'/dr_{command_key}_full'
+                )
+                dhaturupa_output.append(full_command)
+            for output in dhaturupa_output:
+                await event.respond(output)
+        else:
+            # print(f"INVALID_VERBINDEX: {dhaatu_idx}")
+            pass
     raise events.StopPropagation
 
 
-@bot.on(events.NewMessage(pattern='^/shabda '))
-async def search_word(event):
-    global transliteration_scheme
-    global transliteration_config
+###############################################################################
+# Word Event Handlers
 
+
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_WORD]["command"])}) '
+))
+async def word_handler(event):
+    _command = COMMAND_DETAILS[COMMAND_WORD]
     search_key = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
 
-    # print(f"WORDSEARCH: {search_key}")
-
     if search_key == "" or len(search_key.split()) > 1:
-        await event.reply('USAGE: /shabda शब्दः/शब्दरूपम्')
+        await event.reply(
+            f'USAGE: /{_command["command"][0]} {_command["argument_text"]}'
+        )
     else:
-        # wait_message = [
-        #     'Please wait.'
-        # ]
-        # await event.reply('\n'.join(wait_message))
-
         search_key = sanscript.transliterate(
             search_key,
             get_user_scheme(sender_id),
-            transliteration_config['internal']
+            TRANSLITERATION_SCHEME_INTERNAL
         )
         matches = []
         grouped_matches = {}
@@ -682,56 +492,104 @@ async def search_word(event):
                         )
 
         if not matches:
-            await event.reply("तत् शब्दम् शब्दरूपम् वा न जानामि।")
+            await event.reply(MESSAGE_UNKNOWN_WORD)
         else:
             # keyboard = []
             display_message = []
             for root, genders in grouped_matches.items():
                 root_en = sanscript.transliterate(
                     root,
-                    transliteration_config['internal'],
-                    sanscript.HK
+                    TRANSLITERATION_SCHEME_INTERNAL,
+                    TRANSLITERATION_SCHEME_COMMAND
                 )
                 for gender in genders:
-                    # keyboard = [[Button.inline(
-                    #     'रूपं दर्शयतु', data=f'wordsearch_{root}_{gender}'
-                    # )]]
-
                     match_message = format_word_match(
                         root, gender, genders[gender]
                     )
-                    gender_en = gender_map[gender]
+                    gender_en = GENDER_MAP[gender]
                     match_message.append(
-                        f'रूपं दर्शयतु - /sr_{root_en}_{gender_en}'
+                        f'{MESSAGE_SHOW_FORMS} '
+                        f'/sr_{root_en}_{gender_en}'
                     )
 
                     display_message.append('\n'.join(match_message))
 
-                    # await event.respond(
-                    #     '\n'.join(display_message),
-                    #     buttons=keyboard, parse_mode='html')
             await event.respond(
                 '\n\n'.join(display_message), parse_mode='html'
             )
 
 
-@bot.on(events.NewMessage(pattern='^/(vishleshana|vigraha) '))
-async def sandhi_samaasa_split(event):
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_DECLENSION]["command"])}) '
+))
+async def declension_handler(event):
+    _command = COMMAND_DETAILS[COMMAND_DECLENSION]
+    words = event.text.split()
+    if len(words) == 3:
+        root = words[1]
+        gender = words[2]
+
+        # print(f'WORDFORMS: {root} {gender}')
+        shabdapatha_gender = GENDER_MAP[gender].replace('a', 'm')
+        shabda_idx = SHABDAPATHA.get_word(root, shabdapatha_gender)
+        if shabda_idx is not None:
+            rupaani = SHABDAPATHA.get_forms(shabda_idx)
+        else:
+            rupaani = Heritage.get_declensions(root, gender)
+
+        rupaani[0][0] = ""
+        await event.respond('\n'.join([
+            f"**प्रातिपदिकम्**: {root}, **लिङ्गम्**: {gender}",
+            format_declensions(rupaani)
+        ]))
+    else:
+        await event.reply(
+            f'USAGE: /{_command["command"][0]} {_command["argument_text"]}'
+        )
+    raise events.StopPropagation
+
+
+@bot.on(events.NewMessage(pattern='^/sr_'))
+async def declension_handler_wrapper(event):
+    _bot_command = COMMAND_DETAILS[COMMAND_DECLENSION]["command"][0]
+    words = event.text.split("_")
+    # Change back root from ITRANS to devanagari
+    words[1] = sanscript.transliterate(
+        words[1],
+        TRANSLITERATION_SCHEME_COMMAND,
+        TRANSLITERATION_SCHEME_INTERNAL
+    )
+    # Fetch gender
+    words[2] = GENDER_MAP[words[2]]
+    event.text = ' '.join([f'/{_bot_command}', words[1], words[2]])
+    await declension_handler(event)
+    raise events.StopPropagation
+
+
+###############################################################################
+# Segmentation Event Handler
+
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_SEGMENTATION]["command"])}) '
+))
+async def segmentation_handler(event):
     """Output the sandhi split of the input word."""
-    global transliteration_scheme
+    _command = COMMAND_DETAILS[COMMAND_SEGMENTATION]
     input_line = ' '.join(event.text.split()[1:])
     sender_id = event.sender.id
     input_line = sanscript.transliterate(
         input_line,
         get_user_scheme(sender_id),
-        transliteration_config['internal']
+        TRANSLITERATION_SCHEME_INTERNAL
     )
     # Limit on IAST text is 128 characters
     # 115 is just a heuristic approximation for Devanagari text
     # so that resulting IAST is < 128 length
 
     if input_line == "":
-        await event.reply('USAGE: /split पद')
+        await event.reply(
+            f'USAGE: /{_command["command"][0]} {_command["argument_text"]}'
+        )
     else:
         fold_input_line = fold(input_line, width=115)
         split_output = VISHLESHANA.split(fold_input_line)
@@ -739,17 +597,159 @@ async def sandhi_samaasa_split(event):
         await event.respond(split_output)
 
 ###############################################################################
+# Suggestion Event Handler
 
 
-@bot.on(events.NewMessage(pattern='^/(suggest|feedback|pratikriya|suchana)'))
-async def give_suggestions(event):
+@bot.on(events.NewMessage(
+    pattern=f'^/({"|".join(COMMAND_DETAILS[COMMAND_SUGGESTION]["command"])}) '
+))
+async def suggestion_handler(event):
     """Give suggestions"""
     message = event.text
     sender = await event.get_sender()
-    user_file = os.path.join(config.suggestion_dir, f"{sender.username}.txt")
+    user_file = os.path.join(config.SUGGESTION_DIR, f"{sender.username}.txt")
     with open(user_file, 'a') as f:
         f.write("\n".join([f"--- {datetime.datetime.now()} ---", message, ""]))
-    await event.reply("समीचीना सूचना। धन्यवादः।")
+    await event.reply(MESSAGE_SUGGESTION_REPLY)
+
+
+###############################################################################
+# Command Handler Map
+
+COMMAND_HANDLERS = {
+    COMMAND_HELP: help_handler,
+    COMMAND_VERB: verb_handler,
+    COMMAND_WORD: word_handler,
+    COMMAND_CONJUGATION: conjugation_handler,
+    COMMAND_DECLENSION: declension_handler,
+    COMMAND_SEGMENTATION: segmentation_handler,
+    COMMAND_SUGGESTION: suggestion_handler
+}
+
+###############################################################################
+# Inline Button Callback Handlers
+
+
+@bot.on(events.CallbackQuery(pattern=f'^{CALLBACK_PREFIX_SCHEME}_'))
+async def scheme_handler(event):
+    """ Invoked from set_scheme() """
+    global transliteration_scheme
+    sender_id = event.sender.id
+
+    if sender_id not in transliteration_scheme:
+        transliteration_scheme[sender_id] = {
+            'input': TRANSLITERATION_SCHEME_DEFAULT,
+            'output': TRANSLITERATION_SCHEME_DEFAULT
+        }
+
+    data = event.data.decode('utf-8')
+    _, scheme = data.split('_')
+
+    transliteration_scheme[sender_id]['input'] = scheme
+
+    # Editing last message, removing keyboard
+    last_message = await event.get_message()
+    await event.edit(
+        last_message.raw_text, buttons=Button.clear(), parse_mode='html'
+    )
+
+    response_message = [
+        MESSAGE_THANK_YOU,
+        ' '.join([MESSAGE_SELECTED_SCHEME, TRANSLITERATION_SCHEMES[scheme]]),
+        MESSAGE_ASK_QUERY
+    ]
+
+    await event.respond('\n'.join(response_message))
+    raise events.StopPropagation
+
+
+@bot.on(events.CallbackQuery(
+    pattern=f'^{CALLBACK_PREFIX_QUERY}{CALLBACK_SEPARATOR}')
+)
+async def query_handler(event):
+    """ Invoked from search() when single words given as input """
+    # print("qh " + event.data.decode('utf-8'))
+    if 'help' in event.data.decode('utf-8'):
+        await help_handler(event)
+    else:
+        await query_redirect(event)
+
+
+async def query_redirect(event):
+    data = event.data.decode('utf-8')
+    prefix, text, query_id = data.split(CALLBACK_SEPARATOR)
+
+    for _command in [COMMAND_WORD, COMMAND_VERB, COMMAND_SEGMENTATION]:
+        if query_id == BUTTONS[_command]["id"]:
+            _bot_command = COMMAND_DETAILS[_command]["command"][0]
+            event.text = f"/{_bot_command} {text}"
+            await COMMAND_HANDLERS[_command](event)
+
+
+###############################################################################
+# Non-Commands
+
+
+def make_buttons(event_text, _buttons, _prefix, _separator):
+    """Generate Clickable Buttons"""
+    text = f"{_prefix}{_separator}{event_text}{_separator}"
+    buttons = []
+    for _button_row in _buttons:
+        _row = []
+        for _button in _button_row:
+            _row.append(
+                Button.inline(_button["text"], data=f"{text}{_button['id']}")
+            )
+        if _row:
+            buttons.append(_row)
+    return buttons
+
+
+@bot.on(events.NewMessage(pattern='^[^/]'))
+async def process_non_command(event):
+    """Handle messages that do not start with /"""
+    event_text = event.text
+
+    # print(f"Search: {event_text}")
+    keys = event_text.split()
+
+    command_found = False
+    for _command_id, _handler in COMMAND_HANDLERS.items():
+        _command = COMMAND_DETAILS[_command_id]
+        _commands = [
+            sanscript.transliterate(
+                sanskrit_word,
+                TRANSLITERATION_SCHEME_INTERNAL,
+                output_scheme
+            )
+            for sanskrit_word in _command["sanskrit"]
+            for output_scheme in TRANSLITERATION_SCHEMES
+        ] + _command["english"]
+
+        if keys[0] in _commands:
+            if _command["arguments"] == -1:
+                command_found = True
+                await _handler(event)
+            elif len(keys[1:]) == _command["arugments"]:
+                command_found = True
+                await _handler(event)
+            else:
+                await event.respond(ERROR_MESSAGE_ARGUMENT_MISTMATCH)
+                await help_handler(event)
+
+    if not command_found:
+        _buttons = [
+            [BUTTONS[COMMAND_WORD], BUTTONS[COMMAND_VERB]],
+            [BUTTONS[COMMAND_SEGMENTATION]],
+            [BUTTONS[COMMAND_HELP]]
+        ]
+        buttons = make_buttons(
+            event_text,
+            _buttons=_buttons,
+            _prefix=CALLBACK_PREFIX_QUERY,
+            _separator=CALLBACK_SEPARATOR
+        )
+        await event.reply(MESSAGE_CHOOSE_TYPE, buttons=buttons)
 
 
 ###############################################################################

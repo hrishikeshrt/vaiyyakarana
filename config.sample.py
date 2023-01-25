@@ -10,15 +10,15 @@ import os
 
 ###############################################################################
 
-home_dir = os.path.expanduser('~')
-data_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
+HOME_DIR = os.path.expanduser('~')
+DATA_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'data')
 
-dhatu_file = os.path.join(data_dir, 'dhatu.json')
-shabda_file = os.path.join(data_dir, 'shabda.json')
+DHATU_FILE = os.path.join(DATA_DIR, 'dhatu.json')
+SHABDA_FILE = os.path.join(DATA_DIR, 'shabda.json')
 
-hellwig_splitter_dir = ''
-heritage_platform_dir = ''
-suggestion_dir = 'suggestions'
+HELLWIG_SPLITTER_DIR = ''
+HERITAGE_PLATFORM_DIR = ''
+SUGGESTION_DIR = 'suggestions'
 
 ###############################################################################
 
