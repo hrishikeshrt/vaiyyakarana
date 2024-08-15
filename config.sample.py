@@ -20,6 +20,9 @@ HELLWIG_SPLITTER_DIR = ''
 HERITAGE_PLATFORM_DIR = ''
 SUGGESTION_DIR = 'suggestions'
 
+VERBOSE = True
+DEBUG = False
+
 ###############################################################################
 
 

@@ -60,6 +60,19 @@ from utils.dhatupatha import DhatuPatha, DHATU_LANG, LAKARA_LANG, VALUES_LANG
 from utils.shabdapatha import ShabdaPatha
 
 ###############################################################################
+
+LOGGER = logging.getLogger()
+if not LOGGER.hasHandlers():
+    LOGGER.addHandler(logging.StreamHandler())
+
+if config.VERBOSE:
+    LOGGER.setLevel(logging.INFO)
+
+if config.DEBUG:
+    LOGGER.setLevel(logging.DEBUGG)
+LOGGER.setLevel(logging.INFO)
+
+###############################################################################
 # Initialization
 
 # --------------------------------------------------------------------------- #
@@ -716,6 +729,8 @@ async def process_non_command(event):
     command_found = False
     for _command_id, _handler in COMMAND_HANDLERS.items():
         _command = COMMAND_DETAILS[_command_id]
+        LOGGER.info(_command_id)
+        LOGGER.info(_command)
         _commands = [
             sanscript.transliterate(
                 sanskrit_word,
