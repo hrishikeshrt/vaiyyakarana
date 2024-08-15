@@ -264,11 +264,16 @@ def format_conjugations(dhatu, rupaani, full_flag):
 # Basic Event Handlers
 
 
+# Debug
+@bot.on(events.NewMessage)
+async def handle_message(event):
+    LOGGER.debug(event)
+
 # Start
 @bot.on(events.NewMessage(pattern='^/start'))
 async def start(event):
     """Send a message when the command /start is issued."""
-
+    LOGGER.debug("START")
     await event.respond('\n'.join(MESSAGE_INTRODUCTION), parse_mode='html')
 
     # call help handler
@@ -286,7 +291,7 @@ async def start(event):
 ))
 async def help_handler(event):
     """Display Help Message"""
-
+    LOGGER.debug("HELP")
     help_message = [MESSAGE_AVAILABLE_COMMANDS]
 
     for _, _command in COMMAND_DETAILS.items():
