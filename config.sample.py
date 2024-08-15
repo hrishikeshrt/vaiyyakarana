@@ -33,4 +33,9 @@ class TelegramConfig:
     bot_name = ''
     bot_token = ''
 
+    use_custom_datacenter = True
+    dc_id = 5
+    dc_server_address = '91.108.56.158'
+    dc_port = 443
+
 ###############################################################################

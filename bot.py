@@ -771,6 +771,12 @@ async def process_non_command(event):
 
 
 def main():
+    if config.TelegramConfig.use_custom_datacenter:
+        bot.session.set_dc(
+            config.TelegramConfig.dc_id,
+            config.TelegramConfig.dc_server_address,
+            config.TelegramConfig.dc_port
+        )
     bot.start(bot_token=config.TelegramConfig.bot_token)
     bot.run_until_disconnected()
 
