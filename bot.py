@@ -5,6 +5,7 @@ Telegram Vyakarana Bot
 """
 
 import os
+import time
 import logging
 import datetime
 
@@ -775,6 +776,16 @@ async def process_non_command(event):
 ###############################################################################
 
 
+def start_bot(client):
+    client.start(bot_token=config.TelegramConfig.bot_token)
+    try:
+        client.run_until_disconnected()
+    except ConnectionError as e:
+        print(f"ConnectionError: {e}")
+        time.sleep(5)  # wait before retrying
+        start_bot(client)
+
+
 def main():
     if config.TelegramConfig.use_custom_datacenter:
         bot.session.set_dc(
@@ -782,9 +793,7 @@ def main():
             config.TelegramConfig.dc_server_address,
             config.TelegramConfig.dc_port
         )
-    bot.start(bot_token=config.TelegramConfig.bot_token)
-    bot.run_until_disconnected()
-
+    start_bot(bot)
 
 ###############################################################################
 
